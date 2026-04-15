@@ -4,9 +4,9 @@ NYU Database Course Project — built with Django and PostgreSQL.
 
 ## Tech Stack
 
-- **Backend**: Django 5.x
-- **Database**: PostgreSQL (via psycopg2)
-- **Python**: 3.14+
+- **Backend**: Django 5.2.13
+- **Database**: PostgreSQL (via psycopg)
+- **Python**: 3.11.9
 
 ## Getting Started
 
