@@ -20,6 +20,9 @@ build/
 # Environment variables
 .env
 
+# Docs
+docs/*.pdf
+
 # OS
 .DS_Store
 Thumbs.db
