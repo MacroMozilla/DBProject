@@ -1,0 +1,569 @@
+\documentclass[11pt]{article}
+\usepackage[utf8]{inputenc}
+\usepackage[margin=1in]{geometry}
+\usepackage{tikz}
+\usetikzlibrary{shapes.geometric, arrows.meta, positioning}
+\usepackage{listings}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{longtable}
+
+\lstset{
+    language=SQL,
+    basicstyle=\ttfamily\scriptsize,
+    keywordstyle=\color{blue}\bfseries,
+    stringstyle=\color{red},
+    commentstyle=\color{gray},
+    breaklines=true,
+    frame=single,
+    showstringspaces=false
+}
+
+\title{Database Project Report \\ \large CS6083 Spring 2026 \\ \large snickr: A Web-Based Collaboration System}
+\author{
+    \begin{tabular}[t]{c}
+        Christine Wagner \\
+        \texttt{caw561@nyu.edu}
+    \end{tabular}
+    \hspace{2em}
+    \begin{tabular}[t]{c}
+        Hongyi Zeng \\
+        \texttt{hz3866@nyu.edu}
+    \end{tabular}
+}
+\date{\today}
+
+\begin{document}
+
+\maketitle
+
+\section*{Introduction}
+
+This report documents the design and implementation of \textit{snickr}, a web-based collaboration system similar to Slack. The system allows users to create workspaces, organize communication through public, private, and direct channels, and exchange messages within those channels.
+
+The database is built on PostgreSQL and consists of six relations: \texttt{users}, \texttt{workspaces}, \texttt{workspace\_members}, \texttt{channels}, \texttt{channel\_members}, and \texttt{messages}. Access control is enforced at the application level rather than through database permissions or views --- a single DBMS account is used, and the application restricts content visibility based on workspace and channel membership.
+
+This report covers the schema design with ER diagrams and relational translation (Section~a), schema creation SQL (Section~b), seven required queries with test results (Section~c), and a discussion of the test data used to validate the queries (Section~d).
+
+\section*{(a) Database Schema Design}
+
+\subsection*{(a.1) ER Diagram}
+
+\begin{center}
+\begin{tikzpicture}[
+    entity/.style={rectangle, draw, fill=blue!10, minimum width=2cm, minimum height=0.8cm, font=\small\bfseries},
+    relationship/.style={diamond, draw, fill=orange!20, aspect=2.5, font=\scriptsize},
+    attr/.style={ellipse, draw, fill=white, inner sep=1pt, font=\scriptsize\ttfamily},
+    >=Stealth,
+    scale=0.75, transform shape
+]
+
+% Row 1: Entities
+\node[entity] (user) at (0, 6) {Users};
+\node[entity] (workspace) at (10, 6) {Workspaces};
+\node[entity] (channel) at (10, 0) {Channels};
+\node[entity] (message) at (0, 0) {Messages};
+
+% Row 2: Relationships (links in the middle)
+\node[relationship] (wm) at (5, 6) {ws\_member};
+\node[relationship] (cm) at (5, 3) {ch\_member};
+
+% User attributes (above and left)
+\node[attr] (uemail) at (-2, 8) {\underline{email}};
+\node[attr] (uname) at (0, 8) {username};
+\node[attr] (unick) at (2, 8) {nickname};
+\node[attr] (upw) at (-3, 6) {pwhash};
+
+% Workspace attributes (above and right)
+\node[attr] (wsid) at (8, 8) {\underline{wsid}};
+\node[attr] (wsname) at (10, 8) {wsname};
+\node[attr] (wsdesc) at (12.5, 8) {wsdescription};
+
+% Channel attributes (below and right)
+\node[attr] (chid) at (8, -2) {\underline{chid}};
+\node[attr] (chname) at (10, -2) {chname};
+\node[attr] (chtype) at (12, -2) {chtype};
+
+% Message attributes (below and left)
+\node[attr] (msgid) at (-2, -2) {\underline{msgid}};
+\node[attr] (content) at (0, -2) {content};
+\node[attr] (postat) at (2, -2) {postat};
+
+% ws_member attributes (above the diamond)
+\node[attr] (wmrole) at (4, 8) {role};
+\node[attr] (wmacc) at (6, 8) {accepted};
+
+% ch_member attributes (sides of the diamond)
+\node[attr] (cmrole) at (3, 1.5) {role};
+\node[attr] (cmacc) at (7, 4.5) {accepted};
+
+% Edges: User attributes
+\draw (user) -- (uemail);
+\draw (user) -- (uname);
+\draw (user) -- (unick);
+\draw (user) -- (upw);
+
+% Edges: Workspace attributes
+\draw (workspace) -- (wsid);
+\draw (workspace) -- (wsname);
+\draw (workspace) -- (wsdesc);
+
+% Edges: Channel attributes
+\draw (channel) -- (chid);
+\draw (channel) -- (chname);
+\draw (channel) -- (chtype);
+
+% Edges: Message attributes
+\draw (message) -- (msgid);
+\draw (message) -- (content);
+\draw (message) -- (postat);
+
+% Edges: Relationship attributes
+\draw (wm) -- (wmrole);
+\draw (wm) -- (wmacc);
+\draw (cm) -- (cmrole);
+\draw (cm) -- (cmacc);
+
+% Edges: Entity-Relationship connections
+\draw (user) -- node[above] {N} (wm);
+\draw (workspace) -- node[above] {N} (wm);
+\draw (user) -- node[left] {N} (cm);
+\draw (channel) -- node[right] {N} (cm);
+\draw (workspace) -- node[right] {1:N} (channel);
+\draw (user) -- node[left] {1:N} (message);
+\draw (message) -- node[below] {N:1} (channel);
+
+\end{tikzpicture}
+\end{center}
+
+\subsection*{(a.2) Relational Schema}
+
+The ER diagram translates into the following six relations:
+
+\begin{enumerate}
+    \item \textbf{users}(\underline{email}, username, nickname, pwhash, createdat, updatedat)
+    \item \textbf{workspaces}(\underline{wsid}, wsname, wsdescription, createdat, updatedat)
+    \item \textbf{workspace\_members}(\underline{wsid, email}, role, accepted, createdat, updatedat)
+        \begin{itemize}
+            \item wsid $\rightarrow$ workspaces(wsid)
+            \item email $\rightarrow$ users(email)
+            \item role $\in$ \{creator, admin, member\}
+        \end{itemize}
+    \item \textbf{channels}(\underline{chid}, wsid, chname, chtype, createdat, updatedat)
+        \begin{itemize}
+            \item wsid $\rightarrow$ workspaces(wsid)
+            \item chtype $\in$ \{public, private, direct\}
+        \end{itemize}
+    \item \textbf{channel\_members}(\underline{chid, email}, role, accepted, createdat, updatedat)
+        \begin{itemize}
+            \item chid $\rightarrow$ channels(chid)
+            \item email $\rightarrow$ users(email)
+            \item role $\in$ \{creator, member\}
+        \end{itemize}
+    \item \textbf{messages}(\underline{msgid}, chid, email, content, postat)
+        \begin{itemize}
+            \item chid $\rightarrow$ channels(chid)
+            \item email $\rightarrow$ users(email)
+        \end{itemize}
+\end{enumerate}
+
+\subsection*{(a.3) Design Assumptions}
+
+\begin{itemize}
+    \item \textbf{Creator is stored in membership tables, not in workspace/channel tables.} The creator is the first member inserted with role = `creator'. This avoids redundancy and simplifies queries --- no need to join an extra field when checking roles.
+    \item \textbf{Invitations are tracked via the \texttt{accepted} field.} When a user is invited, a record is inserted with \texttt{accepted = FALSE}. Upon acceptance, it is updated to \texttt{TRUE}. This eliminates the need for a separate invitations table.
+    \item \textbf{Public channels still require membership records.} Users in a workspace \textit{can} join public channels, but are not automatically members. They must explicitly join, at which point a record is inserted with \texttt{accepted = TRUE}.
+    \item \textbf{Passwords are stored as hashes.} The \texttt{pwhash} field stores a hashed password rather than plaintext for security.
+    \item \textbf{Timestamps are recorded for all actions.} All tables include \texttt{createdat} and \texttt{updatedat} fields (messages use \texttt{postat} instead).
+    \item \textbf{Access control is enforced at the application level}, not through database permissions or views, as specified in the project requirements.
+\end{itemize}
+
+\subsection*{(a.4) Space Efficiency}
+
+\begin{itemize}
+    \item \textbf{No redundant creator columns.} Instead of storing a separate \texttt{creator\_email} in the \texttt{workspaces} and \texttt{channels} tables, we encode the creator as a membership record with \texttt{role = 'creator'}. This avoids duplicating user references.
+    \item \textbf{Composite primary keys} on \texttt{workspace\_members} and \texttt{channel\_members} eliminate the need for surrogate ID columns in junction tables.
+    \item \textbf{\texttt{VARCHAR} with appropriate limits} is used instead of fixed-length \texttt{CHAR} fields, so shorter values do not waste space.
+    \item \textbf{\texttt{SERIAL} auto-increment} is used for \texttt{wsid}, \texttt{chid}, and \texttt{msgid} (4-byte integers), which is more compact than UUIDs.
+    \item \textbf{No separate invitations table.} The \texttt{accepted} boolean field on membership tables tracks invitation state in-place, avoiding an extra table and the joins it would require.
+\end{itemize}
+
+\newpage
+\section*{(b) Schema Creation}
+
+The following SQL creates the schema in PostgreSQL with all key, foreign key, and check constraints:
+
+\begin{lstlisting}
+CREATE TABLE users (
+    email       VARCHAR(255) PRIMARY KEY,
+    username    VARCHAR(50)  NOT NULL,
+    nickname    VARCHAR(50),
+    pwhash      VARCHAR(255) NOT NULL,
+    createdat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE workspaces (
+    wsid        SERIAL       PRIMARY KEY,
+    wsname      VARCHAR(100) NOT NULL,
+    wsdescription TEXT,
+    createdat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE workspace_members (
+    wsid        INT          NOT NULL REFERENCES workspaces(wsid),
+    email       VARCHAR(255) NOT NULL REFERENCES users(email),
+    role        VARCHAR(10)  NOT NULL CHECK (role IN ('creator', 'admin', 'member')),
+    accepted    BOOLEAN      NOT NULL DEFAULT FALSE,
+    createdat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (wsid, email)
+);
+
+CREATE TABLE channels (
+    chid        SERIAL       PRIMARY KEY,
+    wsid        INT          NOT NULL REFERENCES workspaces(wsid),
+    chname      VARCHAR(100),
+    chtype      VARCHAR(10)  NOT NULL CHECK (chtype IN ('public', 'private', 'direct')),
+    createdat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE channel_members (
+    chid        INT          NOT NULL REFERENCES channels(chid),
+    email       VARCHAR(255) NOT NULL REFERENCES users(email),
+    role        VARCHAR(10)  NOT NULL CHECK (role IN ('creator', 'member')),
+    accepted    BOOLEAN      NOT NULL DEFAULT FALSE,
+    createdat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updatedat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    PRIMARY KEY (chid, email)
+);
+
+CREATE TABLE messages (
+    msgid       SERIAL       PRIMARY KEY,
+    chid        INT          NOT NULL REFERENCES channels(chid),
+    email       VARCHAR(255) NOT NULL REFERENCES users(email),
+    content     TEXT         NOT NULL,
+    postat      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
+);
+\end{lstlisting}
+
+\newpage
+\section*{(c) Queries}
+
+\subsection*{(1) Create a new user account}
+
+\begin{lstlisting}
+CREATE OR REPLACE PROCEDURE create_user(
+    p_email    VARCHAR,
+    p_username VARCHAR,
+    p_nickname VARCHAR,
+    p_pwhash   VARCHAR
+)
+LANGUAGE SQL
+AS $$
+    INSERT INTO users (email, username, nickname, pwhash)
+    VALUES (p_email, p_username, p_nickname, p_pwhash);
+$$;
+
+-- Example call:
+CALL create_user('gz1234@nyu.edu', 'gracezhu', 'Grace', 'a1b2c3d4e5f6');
+\end{lstlisting}
+
+\noindent\textbf{Test:} Calling with a new email succeeds and inserts a row into \texttt{users}. Calling with a duplicate email raises a primary key violation, confirming the uniqueness constraint.
+
+\subsection*{(2) Create a new public channel (with authorization check)}
+
+\begin{lstlisting}
+CREATE OR REPLACE PROCEDURE create_public_channel(
+    p_wsid    INT,
+    p_email   VARCHAR,
+    p_chname  VARCHAR
+)
+LANGUAGE plpgsql
+AS $$
+DECLARE
+    v_chid INT;
+BEGIN
+    -- Check if the user is an accepted member of the workspace
+    IF NOT EXISTS (
+        SELECT 1 FROM workspace_members
+        WHERE wsid = p_wsid AND email = p_email AND accepted = TRUE
+    ) THEN
+        RAISE EXCEPTION 'User % is not an accepted member of workspace %',
+            p_email, p_wsid;
+    END IF;
+
+    -- Create the public channel
+    INSERT INTO channels (wsid, chname, chtype)
+    VALUES (p_wsid, p_chname, 'public')
+    RETURNING chid INTO v_chid;
+
+    -- Add the creator as a channel member
+    INSERT INTO channel_members (chid, email, role, accepted)
+    VALUES (v_chid, p_email, 'creator', TRUE);
+END;
+$$;
+
+-- Example call:
+CALL create_public_channel(1, 'az1234@nyu.edu', 'announcements');
+\end{lstlisting}
+
+\noindent\textbf{Test:} Calling with an accepted workspace member succeeds, creating a new channel and adding the user as channel creator. Calling with a non-member (e.g., Eve, who has a pending invite) raises the exception \texttt{User \% is not an accepted member of workspace \%}.
+
+\newpage
+\subsection*{(3) For each workspace, list all current administrators}
+
+\begin{lstlisting}
+SELECT w.wsid, w.wsname, wm.email, u.username, wm.role
+FROM workspaces w
+JOIN workspace_members wm ON w.wsid = wm.wsid
+JOIN users u ON wm.email = u.email
+WHERE wm.role IN ('creator', 'admin') AND wm.accepted = TRUE
+ORDER BY w.wsid, wm.role;
+\end{lstlisting}
+
+\noindent\textbf{Result:}
+\begin{center}
+\tiny
+\begin{tabular}{cllll}
+\toprule
+wsid & wsname & email & username & role \\
+\midrule
+1 & CS Department & bs5678@nyu.edu & bobsmith & admin \\
+1 & CS Department & az1234@nyu.edu & alicezhang & creator \\
+2 & Tandon Robotics Club & cw9012@nyu.edu & carolwang & admin \\
+2 & Tandon Robotics Club & bs5678@nyu.edu & bobsmith & creator \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{(4) Pending invitations per public channel (older than 5 days)}
+
+\begin{lstlisting}
+SELECT c.chid, c.chname, COUNT(cm.email) AS pending_count
+FROM channels c
+LEFT JOIN channel_members cm ON c.chid = cm.chid
+    AND cm.accepted = FALSE
+    AND cm.createdat < CURRENT_TIMESTAMP - INTERVAL '5 days'
+WHERE c.wsid = 1 AND c.chtype = 'public'
+GROUP BY c.chid, c.chname
+ORDER BY c.chid;
+\end{lstlisting}
+
+\noindent\textbf{Result:}
+\begin{center}
+\tiny
+\begin{tabular}{clc}
+\toprule
+chid & chname & pending\_count \\
+\midrule
+1 & general & 1 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{(5) List all messages in a channel in chronological order}
+
+\begin{lstlisting}
+CREATE OR REPLACE FUNCTION list_channel_messages(p_chid INT)
+RETURNS TABLE (
+    msgid INT, email VARCHAR, username VARCHAR,
+    content TEXT, postat TIMESTAMP
+)
+LANGUAGE SQL
+AS $$
+    SELECT m.msgid, m.email, u.username, m.content, m.postat
+    FROM messages m
+    JOIN users u ON m.email = u.email
+    WHERE m.chid = p_chid
+    ORDER BY m.postat ASC;
+$$;
+
+-- Example call:
+SELECT * FROM list_channel_messages(1);
+\end{lstlisting}
+
+\noindent\textbf{Result:}
+\begin{center}
+\tiny
+\begin{tabular}{cllll}
+\toprule
+msgid & email & username & content & postat \\
+\midrule
+1 & az1234@nyu.edu & alicezhang & Welcome to the CS Department workspace! & 2026-04-01 09:00 \\
+2 & bs5678@nyu.edu & bobsmith & Thanks Alice! Excited to be here. & 2026-04-01 09:05 \\
+3 & cw9012@nyu.edu & carolwang & Is the new curriculum perpendicular to the old one? & 2026-04-01 09:10 \\
+4 & az1234@nyu.edu & alicezhang & Not exactly perpendicular, but quite different. & 2026-04-01 09:15 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+\subsection*{(6) List all messages posted by a particular user}
+
+\begin{lstlisting}
+SELECT m.msgid, c.chname, m.content, m.postat
+FROM messages m
+JOIN channels c ON m.chid = c.chid
+WHERE m.email = 'az1234@nyu.edu'
+ORDER BY m.postat DESC;
+\end{lstlisting}
+
+\noindent\textbf{Result:}
+\begin{center}
+\tiny
+\begin{tabular}{clll}
+\toprule
+msgid & chname & content & postat \\
+\midrule
+7 & (DM) & Bob, can you handle the seminar logistics? & 2026-04-03 14:00 \\
+5 & hiring-committee & We need to review the new candidates. & 2026-04-02 10:00 \\
+4 & general & Not exactly perpendicular, but quite different. & 2026-04-01 09:15 \\
+1 & general & Welcome to the CS Department workspace! & 2026-04-01 09:00 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\subsection*{(7) Search accessible messages by keyword}
+
+\begin{lstlisting}
+CREATE OR REPLACE FUNCTION search_accessible_messages(
+    p_email VARCHAR, p_keyword VARCHAR
+)
+RETURNS TABLE (
+    msgid INT, chname VARCHAR, author VARCHAR,
+    content TEXT, postat TIMESTAMP
+) LANGUAGE SQL AS $$
+    SELECT m.msgid, c.chname, m.email AS author,
+           m.content, m.postat
+    FROM messages m
+    JOIN channels c ON m.chid = c.chid
+    JOIN channel_members cm ON c.chid = cm.chid
+    JOIN workspace_members wm
+      ON c.wsid = wm.wsid AND wm.email = p_email
+    WHERE cm.email = p_email
+      AND cm.accepted = TRUE
+      AND wm.accepted = TRUE
+      AND m.content ILIKE '%' || p_keyword || '%'
+    ORDER BY m.postat DESC;
+$$;
+-- Example call:
+SELECT * FROM search_accessible_messages('az1234@nyu.edu', 'perpendicular');
+\end{lstlisting}
+
+\noindent\textbf{Result:}
+\begin{center}
+\tiny
+\begin{tabular}{cllll}
+\toprule
+msgid & chname & author & content & postat \\
+\midrule
+4 & general & az1234@nyu.edu & Not exactly perpendicular, but quite different. & 2026-04-01 09:15 \\
+3 & general & cw9012@nyu.edu & Is the new curriculum perpendicular to the old one? & 2026-04-01 09:10 \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\newpage
+\section*{(d) Test Data}
+
+The diagram below illustrates the structure of our test data. Solid arrows represent accepted memberships; dashed arrows represent pending invitations. Messages containing the keyword ``perpendicular'' are marked with~$\star$.
+
+\begin{center}
+\begin{tikzpicture}[
+    user/.style={rectangle, rounded corners, draw, fill=green!15, minimum width=1.4cm, minimum height=0.55cm, font=\scriptsize\bfseries},
+    ws/.style={rectangle, draw, fill=blue!15, minimum width=2.6cm, minimum height=0.6cm, font=\scriptsize\bfseries},
+    ch/.style={rectangle, draw, fill=orange!15, minimum width=1.9cm, minimum height=0.5cm, font=\tiny},
+    msg/.style={rectangle, draw, fill=yellow!10, font=\tiny, inner sep=2pt},
+    lbl/.style={font=\tiny, midway},
+    >=Stealth,
+    scale=0.50, transform shape
+]
+
+% ===== Center column: Users (x=11) =====
+\node[user] (eve)   at (11, 11)  {Eve};
+\node[user] (alice) at (11, 9.2) {Alice};
+\node[user] (bob)   at (11, 7.4) {Bob};
+\node[user] (carol) at (11, 5.6) {Carol};
+\node[user] (dave)  at (11, 3.8) {Dave};
+\node[user] (frank) at (11, 2)   {Frank};
+
+% ===== Workspaces (left and right) =====
+\node[ws] (ws1) at (2, 7.4)  {WS1: CS Department};
+\node[ws] (ws2) at (20, 7.4) {WS2: Robotics Club};
+
+% ===== WS1 connections (all go LEFT — no crossing) =====
+\draw[->, dashed, red, thick] (eve.west)   -- node[lbl, above, text=red] {\textit{pending}} (ws1);
+\draw[->]                     (alice.west) -- node[lbl, above] {creator} (ws1);
+\draw[->]                     (bob.west)   -- node[lbl, above] {admin}   (ws1);
+\draw[->]                     (carol.west) -- node[lbl, below] {member}  (ws1);
+\draw[->]                     (dave.west)  -- node[lbl, below] {member}  (ws1);
+
+% ===== WS2 connections (all go RIGHT — no crossing) =====
+\draw[->, dashed, red, thick] (alice.east) -- node[lbl, above, text=red] {\textit{pending}} (ws2);
+\draw[->]                     (bob.east)   -- node[lbl, above] {creator} (ws2);
+\draw[->]                     (carol.east) -- node[lbl, below] {admin}   (ws2);
+\draw[->]                     (dave.east)  -- node[lbl, below] {member}  (ws2);
+\draw[->]                     (frank.east) -- node[lbl, below] {member}  (ws2);
+
+% ===== WS1 Channels (below left) =====
+\node[ch] (ch1) at (-2, -0.5)  {\#general (pub)};
+\node[ch] (ch2) at (2, -0.5)   {\#hiring (priv)};
+\node[ch] (ch3) at (6, -0.5)   {DM: Alice--Bob};
+
+\draw[thick, gray, ->] (ws1) -- (ch1);
+\draw[thick, gray, ->] (ws1) -- (ch2);
+\draw[thick, gray, ->] (ws1) -- (ch3);
+
+\node[font=\tiny, text=gray, align=center] at (-2, -1.9) {Alice$^\text{C}$, Bob, Carol\\Dave \textit{(pend.)}};
+\node[msg] at (-2, -3.1) {4 msgs (2 w/ $\star$)};
+
+\node[font=\tiny, text=gray, align=center] at (2, -1.9) {Alice$^\text{C}$, Bob};
+\node[msg] at (2, -3.1) {2 msgs};
+
+\node[font=\tiny, text=gray, align=center] at (6, -1.9) {Alice$^\text{C}$, Bob};
+\node[msg] at (6, -3.1) {2 msgs};
+
+% ===== WS2 Channels (below right) =====
+\node[ch] (ch4) at (16, -0.5)  {\#events (pub)};
+\node[ch] (ch5) at (20, -0.5)  {\#competitions (pub)};
+\node[ch] (ch6) at (24, -0.5)  {DM: Bob--Carol};
+
+\draw[thick, gray, ->] (ws2) -- (ch4);
+\draw[thick, gray, ->] (ws2) -- (ch5);
+\draw[thick, gray, ->] (ws2) -- (ch6);
+
+\node[font=\tiny, text=gray, align=center] at (16, -1.9) {Bob$^\text{C}$, Carol, Dave\\Frank \textit{(pend.)}};
+\node[msg] at (16, -3.1) {3 msgs (1 w/ $\star$)};
+
+\node[font=\tiny, text=gray, align=center] at (20, -1.9) {Bob$^\text{C}$, Carol};
+\node[msg] at (20, -3.1) {2 msgs};
+
+\node[font=\tiny, text=gray, align=center] at (24, -1.9) {Bob$^\text{C}$, Carol};
+\node[msg] at (24, -3.1) {2 msgs};
+
+% ===== Legend =====
+\node[font=\scriptsize, anchor=north west, align=left] at (-2, -4.3) {
+    \textbf{Legend:}\;
+    $\rightarrow$ accepted member \quad
+    \textcolor{red}{\textbf{- -} $\rightarrow$} pending invitation \quad
+    $^\text{C}$ channel creator \quad
+    $\star$ contains ``perpendicular''
+};
+
+\end{tikzpicture}
+\end{center}
+
+\subsection*{Data Structure Discussion}
+
+\begin{itemize}
+    \item \textbf{6 users} span two workspaces with overlapping membership: Alice, Bob, Carol, and Dave appear in both, while Eve and Frank each belong to only one --- ensuring cross-workspace queries return correct results.
+    \item \textbf{2 workspaces} each contain 3 channels covering all three types (public, private, direct), so queries that filter by channel type are exercised.
+    \item \textbf{Role diversity:} Alice is a workspace creator and channel creator; Bob is both a workspace creator (Robotics Club) and an admin (CS Department). This tests query~(3) which lists administrators.
+    \item \textbf{Pending invitations:} Eve has not accepted her workspace invite; Dave and Frank have not accepted their channel invites (created $>$5 days ago). This tests query~(4).
+    \item \textbf{15 messages} are distributed across all 6 channels. Three messages contain the keyword ``perpendicular'' in two different channels across both workspaces, testing query~(7)'s keyword search with access control.
+\end{itemize}
+
+\end{document}

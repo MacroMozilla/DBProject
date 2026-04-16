@@ -1,6 +1,14 @@
 -- Initialize database schema for DBProject (snickr)
 -- PostgreSQL
 
+-- Drop tables in reverse dependency order
+DROP TABLE IF EXISTS messages;
+DROP TABLE IF EXISTS channel_members;
+DROP TABLE IF EXISTS channels;
+DROP TABLE IF EXISTS workspace_members;
+DROP TABLE IF EXISTS workspaces;
+DROP TABLE IF EXISTS users;
+
 CREATE TABLE users (
     email       VARCHAR(255) PRIMARY KEY,
     username    VARCHAR(50)  NOT NULL,
