@@ -69,11 +69,11 @@ This report covers the schema design with ER diagrams and relational translation
 \node[relationship] (cm) at (5, 3) {ch\_member};
 
 % User attributes (above and left)
-\node[attr] (uuid) at (-3, 8) {\underline{uid}};
+\node[attr] (uuid) at (-5, 8) {\underline{uid}};
 \node[attr] (uemail) at (-1, 8) {email};
 \node[attr] (uname) at (1, 8) {username};
+\node[attr] (unick) at (-3, 8) {nickname};
 \node[attr] (upw) at (-3, 6) {pwhash};
-\node[attr] (unick) at (-1.5, 7) {nickname};
 
 % Workspace attributes (above and right)
 \node[attr] (wsid) at (8, 8) {\underline{wsid}};
@@ -131,9 +131,9 @@ This report covers the schema design with ER diagrams and relational translation
 \draw (workspace) -- node[above] {N} (wm);
 \draw (user) -- node[left] {N} (cm);
 \draw (channel) -- node[right] {N} (cm);
-\draw (workspace) -- node[right] {1:N} (channel);
-\draw (user) -- node[left] {1:N} (message);
-\draw (message) -- node[below] {N:1} (channel);
+\draw (workspace) -- node[right, font=\scriptsize] {contains\;(1:N)} (channel);
+\draw (user) -- node[left, font=\scriptsize] {posts\;(1:N)} (message);
+\draw (message) -- node[below, font=\scriptsize] {belongs\_to\;(N:1)} (channel);
 
 \end{tikzpicture}
 \end{center}
@@ -176,11 +176,13 @@ The ER diagram translates into the following six relations:
 
 \begin{itemize}
     \item \textbf{A surrogate \texttt{uid} is used as the primary key for users}, rather than \texttt{email}. This allows users to change their email address without cascading updates across all foreign keys. The \texttt{email} column is constrained as \texttt{UNIQUE NOT NULL}.
-    \item \textbf{Creator is stored in membership tables, not in workspace/channel tables.} The creator is the first member inserted with role = `creator'. This avoids redundancy and simplifies queries --- no need to join an extra field when checking roles.
-    \item \textbf{Invitations are tracked via the \texttt{accepted} field.} When a user is invited, a record is inserted with \texttt{accepted = FALSE}. Upon acceptance, it is updated to \texttt{TRUE}. This eliminates the need for a separate invitations table.
-    \item \textbf{Public channels still require membership records.} Users in a workspace \textit{can} join public channels, but are not automatically members. They must explicitly join, at which point a record is inserted with \texttt{accepted = TRUE}.
+    \item \textbf{Creator is stored in membership tables, not in workspace/channel tables.} The creator is the first member inserted with role = `creator'. As specified in the requirements, the creator is treated as the initial administrator; query~(3) therefore includes both \texttt{creator} and \texttt{admin} roles when listing administrators. Storing the creator as a role avoids redundancy and simplifies queries.
+    \item \textbf{Invitations are tracked via the \texttt{accepted} field}, not as a separate entity. When a user is invited to a workspace or channel, a membership record is inserted with \texttt{accepted = FALSE}. Upon acceptance, it is updated to \texttt{TRUE}. As a trade-off, the system does not track \textit{who} sent the invitation --- only whether the user has accepted.
+    \item \textbf{Public channels are visible to all workspace members but still require explicit membership.} Users are not automatically added upon channel creation; instead, they must choose to join. When a user joins a public channel, a record is inserted into \texttt{channel\_members} with \texttt{accepted = TRUE}, granting access to the channel's messages.
     \item \textbf{Passwords are stored as hashes.} The \texttt{pwhash} field stores a hashed password rather than plaintext for security.
-    \item \textbf{Timestamps are recorded for all actions.} All tables include \texttt{createdat} and \texttt{updatedat} fields (messages use \texttt{postat} instead).
+    \item \textbf{Timestamps are recorded for all actions.} All tables include \texttt{createdat} and \texttt{updatedat} fields (messages use \texttt{postat} instead). While \texttt{updatedat} is not exercised by the required queries, it is included to support future features such as profile edits, role changes, and invitation acceptance tracking.
+    \item \textbf{Member removal} is supported by deleting the corresponding row from \texttt{workspace\_members} or \texttt{channel\_members}. No soft-delete flag is needed since the membership record itself represents the relationship.
+    \item \textbf{Direct channels are limited to two members}, enforced at the application level rather than via a database constraint, since a \texttt{CHECK} on member count would require a trigger.
     \item \textbf{Access control is enforced at the application level}, not through database permissions or views, as specified in the project requirements.
 \end{itemize}
 
@@ -563,6 +565,41 @@ The diagram below illustrates the structure of our test data. Solid arrows repre
 \end{tikzpicture}
 \end{center}
 
+\subsection*{Sample Data Snapshot}
+
+\noindent\textbf{Users:}
+\begin{center}
+\tiny
+\begin{tabular}{clll}
+\toprule
+uid & email & username & nickname \\
+\midrule
+1 & az1234@nyu.edu & alicezhang & Alice \\
+2 & bs5678@nyu.edu & bobsmith & Bob \\
+3 & cw9012@nyu.edu & carolwang & Carol \\
+4 & dj3456@nyu.edu & davejohnson & Dave \\
+5 & ec7890@nyu.edu & evechen & Eve \\
+6 & fl2345@nyu.edu & frankli & Frank \\
+\bottomrule
+\end{tabular}
+\end{center}
+
+\noindent\textbf{Workspace Members} (excerpt):
+\begin{center}
+\tiny
+\begin{tabular}{cclcc}
+\toprule
+wsid & uid & role & accepted & notes \\
+\midrule
+1 & 1 & creator & TRUE & Alice created CS Dept \\
+1 & 2 & admin & TRUE & Bob is admin \\
+1 & 5 & member & FALSE & Eve invited, not joined \\
+2 & 2 & creator & TRUE & Bob created Robotics \\
+2 & 1 & member & FALSE & Alice invited, not joined \\
+\bottomrule
+\end{tabular}
+\end{center}
+
 \subsection*{Data Structure Discussion}
 
 \begin{itemize}
@@ -572,5 +609,16 @@ The diagram below illustrates the structure of our test data. Solid arrows repre
     \item \textbf{Pending invitations:} Eve has not accepted her workspace invite; Dave and Frank have not accepted their channel invites (created $>$5 days ago). This tests query~(4).
     \item \textbf{15 messages} are distributed across all 6 channels. Three messages contain the keyword ``perpendicular'' in two different channels across both workspaces, testing query~(7)'s keyword search with access control.
 \end{itemize}
+
+\subsection*{Access Control Testing (Query 7)}
+
+We tested \texttt{search\_accessible\_messages} with the keyword ``perpendicular'' under four edge cases to verify that both workspace and channel membership conditions are enforced:
+
+\begin{enumerate}
+    \item \textbf{Alice (uid=1):} Accepted member of workspace~1 and channel~1 (\#general), which contains two messages with the keyword. \textit{Result: 2 rows returned.} \checkmark
+    \item \textbf{Dave (uid=4):} Accepted member of both workspaces. In channel~1 (\#general), Dave has \texttt{accepted = FALSE} (pending); in channel~4 (\#events), Dave is accepted. Both channels contain ``perpendicular'' messages. \textit{Result: 1 row returned} --- only the \#events message, confirming channel-level access control blocks the pending channel. \checkmark
+    \item \textbf{Bob (uid=2):} Accepted member of both workspaces and multiple channels. Channel~1 and channel~4 each contain keyword matches. \textit{Result: 3 rows returned} (2 from \#general, 1 from \#events). \checkmark
+    \item \textbf{Eve (uid=5):} Invited to workspace~1 but has \texttt{accepted = FALSE} (pending workspace invitation), so no channels are accessible. \textit{Result: 0 rows returned.} \checkmark
+\end{enumerate}
 
 \end{document}
