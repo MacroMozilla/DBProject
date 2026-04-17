@@ -67,6 +67,9 @@ This report covers the schema design with ER diagrams and relational translation
 % Row 2: Relationships (links in the middle)
 \node[relationship] (wm) at (5, 6) {ws\_member};
 \node[relationship] (cm) at (5, 3) {ch\_member};
+\node[relationship] (posts) at (0, 3) {posts};
+\node[relationship] (contains) at (10, 3) {contains};
+\node[relationship] (belongsto) at (5, 0) {belongs\_to};
 
 % User attributes (above and left)
 \node[attr] (uuid) at (-5, 8) {\underline{uid}};
@@ -131,9 +134,12 @@ This report covers the schema design with ER diagrams and relational translation
 \draw (workspace) -- node[above] {N} (wm);
 \draw (user) -- node[left] {N} (cm);
 \draw (channel) -- node[right] {N} (cm);
-\draw (workspace) -- node[right, font=\scriptsize] {contains\;(1:N)} (channel);
-\draw (user) -- node[left, font=\scriptsize] {posts\;(1:N)} (message);
-\draw (message) -- node[below, font=\scriptsize] {belongs\_to\;(N:1)} (channel);
+\draw (user) -- node[left] {1} (posts);
+\draw (posts) -- node[left] {N} (message);
+\draw (workspace) -- node[right] {1} (contains);
+\draw (contains) -- node[right] {N} (channel);
+\draw (message) -- node[above] {N} (belongsto);
+\draw (belongsto) -- node[above] {1} (channel);
 
 \end{tikzpicture}
 \end{center}
