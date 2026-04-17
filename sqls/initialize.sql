@@ -10,7 +10,8 @@ DROP TABLE IF EXISTS workspaces;
 DROP TABLE IF EXISTS users;
 
 CREATE TABLE users (
-    email       VARCHAR(255) PRIMARY KEY,
+    uid         SERIAL       PRIMARY KEY,
+    email       VARCHAR(255) NOT NULL UNIQUE,
     username    VARCHAR(50)  NOT NULL,
     nickname    VARCHAR(50),
     pwhash      VARCHAR(255) NOT NULL,
@@ -28,12 +29,12 @@ CREATE TABLE workspaces (
 
 CREATE TABLE workspace_members (
     wsid        INT          NOT NULL REFERENCES workspaces(wsid),
-    email       VARCHAR(255) NOT NULL REFERENCES users(email),
+    uid         INT          NOT NULL REFERENCES users(uid),
     role        VARCHAR(10)  NOT NULL CHECK (role IN ('creator', 'admin', 'member')),
     accepted    BOOLEAN      NOT NULL DEFAULT FALSE,
     createdat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updatedat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (wsid, email)
+    PRIMARY KEY (wsid, uid)
 );
 
 CREATE TABLE channels (
@@ -47,18 +48,18 @@ CREATE TABLE channels (
 
 CREATE TABLE channel_members (
     chid        INT          NOT NULL REFERENCES channels(chid),
-    email       VARCHAR(255) NOT NULL REFERENCES users(email),
+    uid         INT          NOT NULL REFERENCES users(uid),
     role        VARCHAR(10)  NOT NULL CHECK (role IN ('creator', 'member')),
     accepted    BOOLEAN      NOT NULL DEFAULT FALSE,
     createdat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updatedat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
-    PRIMARY KEY (chid, email)
+    PRIMARY KEY (chid, uid)
 );
 
 CREATE TABLE messages (
     msgid       SERIAL       PRIMARY KEY,
     chid        INT          NOT NULL REFERENCES channels(chid),
-    email       VARCHAR(255) NOT NULL REFERENCES users(email),
+    uid         INT          NOT NULL REFERENCES users(uid),
     content     TEXT         NOT NULL,
     postat      TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
 );

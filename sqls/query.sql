@@ -22,7 +22,7 @@ $$;
 --     (Make sure to check that the user is authorized to do so.)
 CREATE OR REPLACE PROCEDURE create_public_channel(
     p_wsid    INT,
-    p_email   VARCHAR,
+    p_uid     INT,
     p_chname  VARCHAR
 )
 LANGUAGE plpgsql
@@ -33,9 +33,9 @@ BEGIN
     -- Check if the user is an accepted member of the workspace
     IF NOT EXISTS (
         SELECT 1 FROM workspace_members
-        WHERE wsid = p_wsid AND email = p_email AND accepted = TRUE
+        WHERE wsid = p_wsid AND uid = p_uid AND accepted = TRUE
     ) THEN
-        RAISE EXCEPTION 'User % is not an accepted member of workspace %', p_email, p_wsid;
+        RAISE EXCEPTION 'User % is not an accepted member of workspace %', p_uid, p_wsid;
     END IF;
 
     -- Create the public channel
@@ -44,8 +44,8 @@ BEGIN
     RETURNING chid INTO v_chid;
 
     -- Add the creator as a channel member
-    INSERT INTO channel_members (chid, email, role, accepted)
-    VALUES (v_chid, p_email, 'creator', TRUE);
+    INSERT INTO channel_members (chid, uid, role, accepted)
+    VALUES (v_chid, p_uid, 'creator', TRUE);
 END;
 $$;
 
@@ -60,16 +60,16 @@ RETURNS TABLE (
 )
 LANGUAGE SQL
 AS $$
-    SELECT m.msgid, m.email, u.username, m.content, m.postat
+    SELECT m.msgid, u.email, u.username, m.content, m.postat
     FROM messages m
-    JOIN users u ON m.email = u.email
+    JOIN users u ON m.uid = u.uid
     WHERE m.chid = p_chid
     ORDER BY m.postat ASC;
 $$;
 
 -- (7) For a particular user, list all messages that are accessible to this user
 --     and that contain a given keyword in the body of the message.
-CREATE OR REPLACE FUNCTION search_accessible_messages(p_email VARCHAR, p_keyword VARCHAR)
+CREATE OR REPLACE FUNCTION search_accessible_messages(p_uid INT, p_keyword VARCHAR)
 RETURNS TABLE (
     msgid    INT,
     chname   VARCHAR,
@@ -79,13 +79,13 @@ RETURNS TABLE (
 )
 LANGUAGE SQL
 AS $$
-    SELECT m.msgid, c.chname, m.email AS author, m.content, m.postat
+    SELECT m.msgid, c.chname, u.email AS author, m.content, m.postat
     FROM messages m
     JOIN channels c ON m.chid = c.chid
-    JOIN channel_members cm ON c.chid = cm.chid
-    JOIN workspace_members wm ON c.wsid = wm.wsid AND wm.email = p_email
-    WHERE cm.email = p_email
-      AND cm.accepted = TRUE
+    JOIN users u ON m.uid = u.uid
+    JOIN channel_members cm ON c.chid = cm.chid AND cm.uid = p_uid
+    JOIN workspace_members wm ON c.wsid = wm.wsid AND wm.uid = p_uid
+    WHERE cm.accepted = TRUE
       AND wm.accepted = TRUE
       AND m.content ILIKE '%' || p_keyword || '%'
     ORDER BY m.postat DESC;
@@ -100,18 +100,18 @@ $$;
 -- CALL create_user('gz1234@nyu.edu', 'gracezhu', 'Grace', 'a1b2c3d4e5f6');
 
 -- (2) Create a new public channel (commented out to avoid duplicate inserts)
--- CALL create_public_channel(1, 'az1234@nyu.edu', 'announcements');
+-- CALL create_public_channel(1, 1, 'announcements');
 
 -- (3) For each workspace, list all current administrators
-SELECT w.wsid, w.wsname, wm.email, u.username, wm.role
+SELECT w.wsid, w.wsname, u.email, u.username, wm.role
 FROM workspaces w
 JOIN workspace_members wm ON w.wsid = wm.wsid
-JOIN users u ON wm.email = u.email
+JOIN users u ON wm.uid = u.uid
 WHERE wm.role IN ('creator', 'admin') AND wm.accepted = TRUE
 ORDER BY w.wsid, wm.role;
 
 -- (4) Pending invitations per public channel (>5 days, not yet joined)
-SELECT c.chid, c.chname, COUNT(cm.email) AS pending_count
+SELECT c.chid, c.chname, COUNT(cm.uid) AS pending_count
 FROM channels c
 LEFT JOIN channel_members cm ON c.chid = cm.chid
     AND cm.accepted = FALSE
@@ -127,8 +127,8 @@ SELECT * FROM list_channel_messages(1);
 SELECT m.msgid, c.chname, m.content, m.postat
 FROM messages m
 JOIN channels c ON m.chid = c.chid
-WHERE m.email = 'az1234@nyu.edu'
+WHERE m.uid = 1
 ORDER BY m.postat DESC;
 
 -- (7) Search accessible messages containing 'perpendicular'
-SELECT * FROM search_accessible_messages('az1234@nyu.edu', 'perpendicular');
+SELECT * FROM search_accessible_messages(1, 'perpendicular');
