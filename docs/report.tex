@@ -192,7 +192,20 @@ The ER diagram translates into the following six relations:
     \item \textbf{Access control is enforced at the application level}, not through database permissions or views, as specified in the project requirements.
 \end{itemize}
 
-\subsection*{(a.4) Space Efficiency}
+\subsection*{(a.4) Application-Level Enforcement}
+
+The following constraints are enforced by the web application rather than the database, either because SQL \texttt{CHECK} constraints cannot express them without triggers, or because they involve session state:
+
+\begin{itemize}
+    \item \textbf{Direct channel membership limit.} The application ensures that exactly two users are associated with a direct channel at creation time. Enforcing this constraint at the database level would require counting rows across tables, which is not possible with a simple \texttt{CHECK} constraint.
+    \item \textbf{Workspace invitation authority.} Only users with
+    \texttt{role IN ('creator', 'admin')} in \texttt{workspace\_members} are permitted to insert new membership records for other users.
+    \item \textbf{Private channel invitation authority.} Only the channel creator (\texttt{role = 'creator'} in \texttt{channel\_members}) may invite additional users to a private channel.
+    \item \textbf{Session identification.} In Part 2, each HTTP request will include a session cookie identifying the logged-in user \texttt{uid}. The application resolves this identity before executing any query, ensuring that users can only access or modify data on their own behalf.
+    \item \textbf{Public channel join eligibility.} Before inserting a \texttt{channel\_members} row for a public channel, the application verifies that the user is an accepted member of the corresponding workspace. This enforces cross-table consistency that is not captured by foreign key constraints alone.
+\end{itemize}
+
+\subsection*{(a.5) Space Efficiency}
 
 \begin{itemize}
     \item \textbf{No redundant creator columns.} Instead of storing a separate \texttt{creator\_uid} in the \texttt{workspaces} and \texttt{channels} tables, we encode the creator as a membership record with \texttt{role = 'creator'}. This avoids duplicating user references.
@@ -201,6 +214,8 @@ The ER diagram translates into the following six relations:
     \item \textbf{\texttt{SERIAL} auto-increment} is used for \texttt{uid}, \texttt{wsid}, \texttt{chid}, and \texttt{msgid} (4-byte integers), which is more compact than UUIDs. Using an integer \texttt{uid} as the user primary key also makes foreign key columns in membership and message tables 4 bytes instead of up to 255 bytes for an email string.
     \item \textbf{No separate invitations table.} The \texttt{accepted} boolean field on membership tables tracks invitation state in-place, avoiding an extra table and the joins it would require.
 \end{itemize}
+
+
 
 \newpage
 \section*{(b) Schema Creation}
