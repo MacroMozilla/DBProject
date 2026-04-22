@@ -7,6 +7,10 @@
 \usepackage{xcolor}
 \usepackage{booktabs}
 \usepackage{longtable}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{microtype}
+\sloppy
 
 \lstset{
     language=SQL,
@@ -95,11 +99,12 @@ This report covers the schema design with ER diagrams and relational translation
 
 % ws_member attributes (above the diamond)
 \node[attr] (wmrole) at (4, 8) {role};
-\node[attr] (wmacc) at (6, 8) {accepted};
+\node[attr] (wmstatus) at (6, 8) {status};
 
 % ch_member attributes (sides of the diamond)
 \node[attr] (cmrole) at (3, 1.5) {role};
-\node[attr] (cmacc) at (7, 4.5) {accepted};
+\node[attr] (cmstatus) at (8, 4.5) {status};
+\node[attr] (cmread) at (5, 4.5) {last\_read\_msgid};
 
 % Edges: User attributes
 \draw (user) -- (uuid);
@@ -125,9 +130,10 @@ This report covers the schema design with ER diagrams and relational translation
 
 % Edges: Relationship attributes
 \draw (wm) -- (wmrole);
-\draw (wm) -- (wmacc);
+\draw (wm) -- (wmstatus);
 \draw (cm) -- (cmrole);
-\draw (cm) -- (cmacc);
+\draw (cm) -- (cmstatus);
+\draw (cm) -- (cmread);
 
 % Edges: Entity-Relationship connections
 \draw (user) -- node[above] {N} (wm);
@@ -149,47 +155,57 @@ This report covers the schema design with ER diagrams and relational translation
 The ER diagram translates into the following six relations:
 
 \begin{enumerate}
-    \item \textbf{users}(\underline{uid}, email, username, nickname, pwhash, createdat, updatedat)
-        \begin{itemize}
-            \item email is \texttt{UNIQUE NOT NULL}
-        \end{itemize}
-    \item \textbf{workspaces}(\underline{wsid}, wsname, wsdescription, createdat, updatedat)
-    \item \textbf{workspace\_members}(\underline{wsid, uid}, role, accepted, createdat, updatedat)
-        \begin{itemize}
-            \item wsid $\rightarrow$ workspaces(wsid)
-            \item uid $\rightarrow$ users(uid)
-            \item role $\in$ \{creator, admin, member\}
-        \end{itemize}
-    \item \textbf{channels}(\underline{chid}, wsid, chname, chtype, createdat, updatedat)
-        \begin{itemize}
-            \item wsid $\rightarrow$ workspaces(wsid)
-            \item chtype $\in$ \{public, private, direct\}
-        \end{itemize}
-    \item \textbf{channel\_members}(\underline{chid, uid}, role, accepted, createdat, updatedat)
-        \begin{itemize}
-            \item chid $\rightarrow$ channels(chid)
-            \item uid $\rightarrow$ users(uid)
-            \item role $\in$ \{creator, member\}
-        \end{itemize}
-    \item \textbf{messages}(\underline{msgid}, chid, uid, content, postat)
-        \begin{itemize}
-            \item chid $\rightarrow$ channels(chid)
-            \item uid $\rightarrow$ users(uid)
-        \end{itemize}
+\item \textbf{users}(\underline{uid}, email, username, nickname, pwhash, createdat, updatedat)
+\begin{itemize}
+\item email is \texttt{UNIQUE NOT NULL}
+\end{itemize}
+
+\item \textbf{workspaces}(\underline{wsid}, wsname, wsdescription, createdat, updatedat)
+
+\item \textbf{workspace\_members}(\underline{wsid}, \underline{uid}, role, status, createdat, updatedat)
+    \begin{itemize}
+        \item wsid $\rightarrow$ workspaces(wsid)
+        \item uid $\rightarrow$ users(uid)
+        \item role $\in$ \{creator, admin, member\}
+        \item status $\in$ \{pending, accepted, rejected\}
+    \end{itemize}
+    
+\item \textbf{channels}(\underline{chid}, wsid, chname, chtype, createdat, updatedat)
+    \begin{itemize}
+        \item wsid $\rightarrow$ workspaces(wsid)
+        \item chtype $\in$ \{public, private, direct\}
+    \end{itemize}
+    
+\item \textbf{channel\_members}(\underline{chid}, \underline{uid}, role, status, last\_read\_msgid, createdat, updatedat)
+    \begin{itemize}
+        \item chid $\rightarrow$ channels(chid)
+        \item uid $\rightarrow$ users(uid)
+        \item role $\in$ \{creator, member\}
+        \item status $\in$ \{pending, accepted, rejected\}
+    \end{itemize}
+    
+\item \textbf{messages}(\underline{msgid}, chid, uid, content, postat)
+    \begin{itemize}
+        \item chid $\rightarrow$ channels(chid)
+        \item uid $\rightarrow$ users(uid)
+    \end{itemize}
+
 \end{enumerate}
+
 
 \subsection*{(a.3) Design Assumptions}
 
 \begin{itemize}
-    \item \textbf{A surrogate \texttt{uid} is used as the primary key for users}, rather than \texttt{email}. This allows users to change their email address without cascading updates across all foreign keys. The \texttt{email} column is constrained as \texttt{UNIQUE NOT NULL}.
-    \item \textbf{Creator is stored in membership tables, not in workspace/channel tables.} The creator is the first member inserted with role = `creator'. As specified in the requirements, the creator is treated as the initial administrator; query~(3) therefore includes both \texttt{creator} and \texttt{admin} roles when listing administrators. Storing the creator as a role avoids redundancy and simplifies queries.
-    \item \textbf{Invitations are tracked via the \texttt{accepted} field}, not as a separate entity. When a user is invited to a workspace or channel, a membership record is inserted with \texttt{accepted = FALSE}. Upon acceptance, it is updated to \texttt{TRUE}. As a trade-off, the system does not track \textit{who} sent the invitation --- only whether the user has accepted.
-    \item \textbf{Public channels are visible to all workspace members but still require explicit membership.} Users are not automatically added upon channel creation; instead, they must choose to join. When a user joins a public channel, a record is inserted into \texttt{channel\_members} with \texttt{accepted = TRUE}, granting access to the channel's messages.
-    \item \textbf{Passwords are stored as hashes.} The \texttt{pwhash} field stores a hashed password rather than plaintext for security.
-    \item \textbf{Timestamps are recorded for all actions.} All tables include \texttt{createdat} and \texttt{updatedat} fields (messages use \texttt{postat} instead). While \texttt{updatedat} is not exercised by the required queries, it is included to support future features such as profile edits, role changes, and invitation acceptance tracking.
-    \item \textbf{Member removal} is supported by deleting the corresponding row from \texttt{workspace\_members} or \texttt{channel\_members}. No soft-delete flag is needed since the membership record itself represents the relationship.
-    \item \textbf{Direct channels are limited to two members}, enforced at the application level rather than via a database constraint, since a \texttt{CHECK} on member count would require a trigger.
-    \item \textbf{Access control is enforced at the application level}, not through database permissions or views, as specified in the project requirements.
+\item \textbf{A surrogate \texttt{uid} is used as the primary key for users}, rather than \texttt{email}. This allows users to change their email address without cascading updates across all foreign keys. The \texttt{email} column is constrained as \texttt{UNIQUE NOT NULL}.
+\item \textbf{Creator is stored in membership tables, not in workspace/channel tables.} The creator is the first member inserted with role = \texttt{'creator'}. As specified in the requirements, the creator is treated as the initial administrator; query~(3) therefore includes both \texttt{'creator'} and \texttt{'admin'} roles when listing administrators. Storing the creator as a role avoids redundancy and simplifies queries.
+\item \textbf{Invitations are tracked via the \texttt{status} field}, not as a separate entity. When a user is invited to a workspace or channel, a membership record is inserted with \texttt{status = 'pending'}. Upon acceptance, it is updated to \texttt{'accepted'}, and users may also explicitly decline an invitation by setting \texttt{'rejected'}. This design supports richer user interaction without introducing a separate invitations table.
+\item \textbf{Public channels are visible to all workspace members but still require explicit membership.} Users are not automatically added upon channel creation; instead, they must choose to join. When a user joins a public channel, a record is inserted into \texttt{channel\_members} with \texttt{status = 'accepted'}, granting access to the channel's messages.
+\item \textbf{Passwords are stored as hashes.} The \texttt{pwhash} field stores a hashed password rather than plaintext for security.
+\item \textbf{Timestamps are recorded for all actions.} All tables include \texttt{createdat} and \texttt{updatedat} fields (messages use \texttt{postat} instead). While \texttt{updatedat} is not exercised by the required queries, it is included to support future features such as profile edits, role changes, and invitation acceptance tracking.
+\item \textbf{Member removal} is supported by deleting the corresponding row from \texttt{workspace\_members} or \texttt{channel\_members}. No soft-delete flag is needed since the membership record itself represents the relationship.
+\item \textbf{Direct channels are limited to two members}, enforced at the application level rather than via a database constraint, since a \texttt{CHECK} on member count would require a trigger.
+\item \textbf{Message read state is tracked at the channel level.} Each \texttt{channel\_members} record includes a \texttt{last\_read\_msgid} attribute, which stores the most recent message viewed by the user in that channel. This enables efficient computation of unread messages without requiring per-message read tracking, which would be significantly more expensive in terms of storage and query complexity.
+\item \textbf{Access control is enforced at the application level}, not through database permissions or views, as specified in the project requirements.
 \end{itemize}
 
 \subsection*{(a.4) Application-Level Enforcement}
@@ -197,13 +213,14 @@ The ER diagram translates into the following six relations:
 The following constraints are enforced by the web application rather than the database, either because SQL \texttt{CHECK} constraints cannot express them without triggers, or because they involve session state:
 
 \begin{itemize}
-    \item \textbf{Direct channel membership limit.} The application ensures that exactly two users are associated with a direct channel at creation time. Enforcing this constraint at the database level would require counting rows across tables, which is not possible with a simple \texttt{CHECK} constraint.
-    \item \textbf{Workspace invitation authority.} Only users with
-    \texttt{role IN ('creator', 'admin')} in \texttt{workspace\_members} are permitted to insert new membership records for other users.
-    \item \textbf{Private channel invitation authority.} Only the channel creator (\texttt{role = 'creator'} in \texttt{channel\_members}) may invite additional users to a private channel.
-    \item \textbf{Session identification.} In Part 2, each HTTP request will include a session cookie identifying the logged-in user \texttt{uid}. The application resolves this identity before executing any query, ensuring that users can only access or modify data on their own behalf.
-    \item \textbf{Public channel join eligibility.} Before inserting a \texttt{channel\_members} row for a public channel, the application verifies that the user is an accepted member of the corresponding workspace. This enforces cross-table consistency that is not captured by foreign key constraints alone.
+\item \textbf{Direct channel membership limit.} The application ensures that exactly two users are associated with a direct channel at creation time. Enforcing this constraint at the database level would require counting rows across tables, which is not possible with a simple \texttt{CHECK} constraint.
+\item \textbf{Workspace invitation authority.} Only users with \texttt{role IN ('creator', 'admin')} in \texttt{workspace\_members} are permitted to insert new membership records for other users.
+\item \textbf{Private channel invitation authority.} Only the channel creator (\texttt{role = 'creator'} in \texttt{channel\_members}) may invite additional users to a private channel.
+\item \textbf{Session identification.} In Part 2, each HTTP request will include a session cookie identifying the logged-in user \texttt{uid}. The application resolves this identity before executing any query, ensuring that users can only access or modify data on their own behalf.
+\item \textbf{Public channel join eligibility.} Before inserting a \texttt{channel\_members} row for a public channel, the application verifies that the user has \texttt{status = 'accepted'} in the corresponding \texttt{workspace\_members} relation. This enforces cross-table consistency that is not captured by foreign key constraints alone.
+\item \textbf{Unread message tracking.} When a user views a channel, the application updates \texttt{last\_read\_msgid} in the corresponding \texttt{channel\_members} record. Messages with a higher \texttt{msgid} are considered unread. This logic is enforced at the application level to ensure a consistent user experience across sessions.
 \end{itemize}
+
 
 \subsection*{(a.5) Space Efficiency}
 
@@ -212,7 +229,7 @@ The following constraints are enforced by the web application rather than the da
     \item \textbf{Composite primary keys} on \texttt{workspace\_members} and \texttt{channel\_members} eliminate the need for surrogate ID columns in junction tables.
     \item \textbf{\texttt{VARCHAR} with appropriate limits} is used instead of fixed-length \texttt{CHAR} fields, so shorter values do not waste space.
     \item \textbf{\texttt{SERIAL} auto-increment} is used for \texttt{uid}, \texttt{wsid}, \texttt{chid}, and \texttt{msgid} (4-byte integers), which is more compact than UUIDs. Using an integer \texttt{uid} as the user primary key also makes foreign key columns in membership and message tables 4 bytes instead of up to 255 bytes for an email string.
-    \item \textbf{No separate invitations table.} The \texttt{accepted} boolean field on membership tables tracks invitation state in-place, avoiding an extra table and the joins it would require.
+    \item \textbf{No separate invitations table.} The \texttt{status} field on membership tables tracks invitation state in-place (pending, accepted, rejected), avoiding an extra table and the joins it would require.
 \end{itemize}
 
 
@@ -245,7 +262,7 @@ CREATE TABLE workspace_members (
     wsid        INT          NOT NULL REFERENCES workspaces(wsid),
     uid         INT          NOT NULL REFERENCES users(uid),
     role        VARCHAR(10)  NOT NULL CHECK (role IN ('creator', 'admin', 'member')),
-    accepted    BOOLEAN      NOT NULL DEFAULT FALSE,
+    status      VARCHAR(10)  NOT NULL CHECK (status IN ('pending', 'accepted', 'rejected')) DEFAULT 'pending',
     createdat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updatedat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (wsid, uid)
@@ -264,7 +281,8 @@ CREATE TABLE channel_members (
     chid        INT          NOT NULL REFERENCES channels(chid),
     uid         INT          NOT NULL REFERENCES users(uid),
     role        VARCHAR(10)  NOT NULL CHECK (role IN ('creator', 'member')),
-    accepted    BOOLEAN      NOT NULL DEFAULT FALSE,
+    status      VARCHAR(10)  NOT NULL CHECK (status IN ('pending', 'accepted', 'rejected')) DEFAULT 'pending',
+    last_read_msgid INT,
     createdat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updatedat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     PRIMARY KEY (chid, uid)
@@ -319,7 +337,7 @@ BEGIN
     -- Check if the user is an accepted member of the workspace
     IF NOT EXISTS (
         SELECT 1 FROM workspace_members
-        WHERE wsid = p_wsid AND uid = p_uid AND accepted = TRUE
+        WHERE wsid = p_wsid AND uid = p_uid AND status = 'accepted'
     ) THEN
         RAISE EXCEPTION 'User % is not an accepted member of workspace %',
             p_uid, p_wsid;
@@ -331,8 +349,8 @@ BEGIN
     RETURNING chid INTO v_chid;
 
     -- Add the creator as a channel member
-    INSERT INTO channel_members (chid, uid, role, accepted)
-    VALUES (v_chid, p_uid, 'creator', TRUE);
+    INSERT INTO channel_members (chid, uid, role, status)
+    VALUES (v_chid, p_uid, 'creator', 'accepted');
 END;
 $$;
 
@@ -350,7 +368,7 @@ SELECT w.wsid, w.wsname, u.email, u.username, wm.role
 FROM workspaces w
 JOIN workspace_members wm ON w.wsid = wm.wsid
 JOIN users u ON wm.uid = u.uid
-WHERE wm.role IN ('creator', 'admin') AND wm.accepted = TRUE
+WHERE wm.role IN ('creator', 'admin') AND wm.status = 'accepted'
 ORDER BY w.wsid, wm.role;
 \end{lstlisting}
 
@@ -375,7 +393,7 @@ wsid & wsname & email & username & role \\
 SELECT c.chid, c.chname, COUNT(cm.uid) AS pending_count
 FROM channels c
 LEFT JOIN channel_members cm ON c.chid = cm.chid
-    AND cm.accepted = FALSE
+    AND cm.status = 'pending'
     AND cm.createdat < CURRENT_TIMESTAMP - INTERVAL '5 days'
 WHERE c.wsid = 1 AND c.chtype = 'public'
 GROUP BY c.chid, c.chname
@@ -474,8 +492,8 @@ RETURNS TABLE (
     JOIN channel_members cm ON c.chid = cm.chid AND cm.uid = p_uid
     JOIN workspace_members wm
       ON c.wsid = wm.wsid AND wm.uid = p_uid
-    WHERE cm.accepted = TRUE
-      AND wm.accepted = TRUE
+    WHERE cm.status = 'accepted'
+      AND wm.status = 'accepted'
       AND m.content ILIKE '%' || p_keyword || '%'
     ORDER BY m.postat DESC;
 $$;
@@ -610,13 +628,13 @@ uid & email & username & nickname \\
 \tiny
 \begin{tabular}{cclcc}
 \toprule
-wsid & uid & role & accepted & notes \\
+wsid & uid & role & status & notes \\
 \midrule
-1 & 1 & creator & TRUE & Alice created CS Dept \\
-1 & 2 & admin & TRUE & Bob is admin \\
-1 & 5 & member & FALSE & Eve invited, not joined \\
-2 & 2 & creator & TRUE & Bob created Robotics \\
-2 & 1 & member & FALSE & Alice invited, not joined \\
+1 & 1 & creator & accepted & Alice created CS Dept \\
+1 & 2 & admin & accepted & Bob is admin \\
+1 & 5 & member & pending & Eve invited, not joined \\
+2 & 2 & creator & accepted & Bob created Robotics \\
+2 & 1 & member & pending & Alice invited, not joined \\
 \bottomrule
 \end{tabular}
 \end{center}
@@ -624,7 +642,7 @@ wsid & uid & role & accepted & notes \\
 \subsection*{Data Structure Discussion}
 
 \begin{itemize}
-    \item \textbf{6 users} span two workspaces with overlapping membership: Alice, Bob, Carol, and Dave appear in both, while Eve and Frank each belong to only one --- ensuring cross-workspace queries return correct results.
+    \item \textbf{6 users} span two workspaces with overlapping membership: Bob, Carol, and Dave appear in both, while Alice is pending in another workspace, and Eve and Frank each belong to only one --- ensuring cross-workspace queries return correct results.
     \item \textbf{2 workspaces} each contain 3 channels covering all three types (public, private, direct), so queries that filter by channel type are exercised.
     \item \textbf{Role diversity:} Alice is a workspace creator and channel creator; Bob is both a workspace creator (Robotics Club) and an admin (CS Department). This tests query~(3) which lists administrators.
     \item \textbf{Pending invitations:} Eve has not accepted her workspace invite; Dave and Frank have not accepted their channel invites (created $>$5 days ago). This tests query~(4).
@@ -637,9 +655,9 @@ We tested \texttt{search\_accessible\_messages} with the keyword ``perpendicular
 
 \begin{enumerate}
     \item \textbf{Alice (uid=1):} Accepted member of workspace~1 and channel~1 (\#general), which contains two messages with the keyword. \textit{Result: 2 rows returned.} \checkmark
-    \item \textbf{Dave (uid=4):} Accepted member of both workspaces. In channel~1 (\#general), Dave has \texttt{accepted = FALSE} (pending); in channel~4 (\#events), Dave is accepted. Both channels contain ``perpendicular'' messages. \textit{Result: 1 row returned} --- only the \#events message, confirming channel-level access control blocks the pending channel. \checkmark
+    \item \textbf{Dave (uid=4):} Accepted member of both workspaces. In channel~1 (\#general), Dave has \texttt{status = 'pending'} in channel~4 (\#events), Dave is accepted. Both channels contain ``perpendicular'' messages. \textit{Result: 1 row returned} --- only the \#events message, confirming channel-level access control blocks the pending channel. \checkmark
     \item \textbf{Bob (uid=2):} Accepted member of both workspaces and multiple channels. Channel~1 and channel~4 each contain keyword matches. \textit{Result: 3 rows returned} (2 from \#general, 1 from \#events). \checkmark
-    \item \textbf{Eve (uid=5):} Invited to workspace~1 but has \texttt{accepted = FALSE} (pending workspace invitation), so no channels are accessible. \textit{Result: 0 rows returned.} \checkmark
+    \item \textbf{Eve (uid=5):} Invited to workspace~1 but has \texttt{status = 'pending'} (pending workspace invitation), so no channels are accessible. \textit{Result: 0 rows returned.} \checkmark
 \end{enumerate}
 
 \end{document}
