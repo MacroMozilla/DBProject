@@ -33,7 +33,7 @@ BEGIN
     -- Check if the user is an accepted member of the workspace
     IF NOT EXISTS (
         SELECT 1 FROM workspace_members
-        WHERE wsid = p_wsid AND uid = p_uid AND accepted = TRUE
+        WHERE wsid = p_wsid AND uid = p_uid AND status = 'accepted'
     ) THEN
         RAISE EXCEPTION 'User % is not an accepted member of workspace %', p_uid, p_wsid;
     END IF;
@@ -44,8 +44,8 @@ BEGIN
     RETURNING chid INTO v_chid;
 
     -- Add the creator as a channel member
-    INSERT INTO channel_members (chid, uid, role, accepted)
-    VALUES (v_chid, p_uid, 'creator', TRUE);
+    INSERT INTO channel_members (chid, uid, role, status)
+    VALUES (v_chid, p_uid, 'creator', 'accepted');
 END;
 $$;
 
@@ -85,8 +85,8 @@ AS $$
     JOIN users u ON m.uid = u.uid
     JOIN channel_members cm ON c.chid = cm.chid AND cm.uid = p_uid
     JOIN workspace_members wm ON c.wsid = wm.wsid AND wm.uid = p_uid
-    WHERE cm.accepted = TRUE
-      AND wm.accepted = TRUE
+    WHERE cm.status = 'accepted'
+      AND wm.status = 'accepted'
       AND m.content ILIKE '%' || p_keyword || '%'
     ORDER BY m.postat DESC;
 $$;
@@ -107,14 +107,14 @@ SELECT w.wsid, w.wsname, u.email, u.username, wm.role
 FROM workspaces w
 JOIN workspace_members wm ON w.wsid = wm.wsid
 JOIN users u ON wm.uid = u.uid
-WHERE wm.role IN ('creator', 'admin') AND wm.accepted = TRUE
+WHERE wm.role IN ('creator', 'admin') AND wm.status = 'accepted'
 ORDER BY w.wsid, wm.role;
 
 -- (4) Pending invitations per public channel (>5 days, not yet joined)
 SELECT c.chid, c.chname, COUNT(cm.uid) AS pending_count
 FROM channels c
 LEFT JOIN channel_members cm ON c.chid = cm.chid
-    AND cm.accepted = FALSE
+    AND cm.status = 'pending'
     AND cm.createdat < CURRENT_TIMESTAMP - INTERVAL '5 days'
 WHERE c.wsid = 1 AND c.chtype = 'public'
 GROUP BY c.chid, c.chname
