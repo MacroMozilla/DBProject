@@ -1,16 +1,17 @@
 -- Test data for DBProject (snickr)
 -- Fake NYU-style data
+-- Passwords are SHA-256 hashes of the plaintext shown in comments
 
 -- ============================================================
--- Users
+-- Users (see docs/api.md for login credentials)
 -- ============================================================
 INSERT INTO users (email, username, nickname, pwhash) VALUES
-('az1234@nyu.edu',  'alicezhang',   'Alice',   'hash_alice_123'),
-('bs5678@nyu.edu',  'bobsmith',     'Bob',     'hash_bob_456'),
-('cw9012@nyu.edu',  'carolwang',    'Carol',   'hash_carol_789'),
-('dj3456@nyu.edu',  'davejohnson',  'Dave',    'hash_dave_012'),
-('ec7890@nyu.edu',  'evechen',      'Eve',     'hash_eve_345'),
-('fl2345@nyu.edu',  'frankli',      'Frank',   'hash_frank_678');
+('az1234@nyu.edu',  'alicezhang',   'Alice',   '4e40e8ffe0ee32fa53e139147ed559229a5930f89c2204706fc174beb36210b3'),  -- alice123
+('bs5678@nyu.edu',  'bobsmith',     'Bob',     'ed4d9437294706c60027d39427f6f5850870625544bb77722aac19f97495b2b7'),  -- bob456
+('cw9012@nyu.edu',  'carolwang',    'Carol',   'dae1889176856be72020e4f0e100d4baa7fbbc95c513b585fb30b99e56fd98d5'),  -- carol789
+('dj3456@nyu.edu',  'davejohnson',  'Dave',    '66afe08203fcede78a06d84384306a995bb5c6313d56b6537248a31d025f7c53'),  -- dave012
+('ec7890@nyu.edu',  'evechen',      'Eve',     '3c6ac0e335056e146d422e2d774cde5880763728cd9cdbed5a6f06e80ba70ae3'),  -- eve345
+('fl2345@nyu.edu',  'frankli',      'Frank',   '1699a1f4e31831a0f531a18a829f41999d2c17df7e062ab5615d862bca488664');  -- frank678
 
 -- ============================================================
 -- Workspaces

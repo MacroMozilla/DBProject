@@ -31,6 +31,9 @@ docs/*.png
 # Database
 db.sqlite3
 
+# Figures
+figs/*.png
+
 # OS
 .DS_Store
 Thumbs.db
