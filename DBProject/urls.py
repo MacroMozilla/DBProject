@@ -16,7 +16,15 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
+from api import views 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('messages/', views.get_messages),
+    path("send-message/", views.send_message),
+    path("channels/", views.get_channels),
+    path("workspaces/", views.get_workspaces),
+    path("invites/", views.get_invites),
+    path("accept-invite/", views.accept_invite),
+    path("reject-invite/", views.reject_invite),
 ]

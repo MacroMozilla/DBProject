@@ -40,7 +40,7 @@ CREATE TABLE workspace_members (
 CREATE TABLE channels (
     chid        SERIAL       PRIMARY KEY,
     wsid        INT NOT NULL REFERENCES workspaces(wsid) ON DELETE CASCADE,
-    chname      VARCHAR(100),  -- NULL allowed for direct channels
+    chname      VARCHAR(100),  
     chtype      VARCHAR(10) NOT NULL CHECK (chtype IN ('public', 'private', 'direct')),
     createdat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updatedat   TIMESTAMP    NOT NULL DEFAULT CURRENT_TIMESTAMP
