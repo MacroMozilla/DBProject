@@ -18,12 +18,19 @@ h1 { text-align: center; margin-bottom: 20px; color: #e94560; }
 .card pre { margin-top: 10px; background: #0f3460; padding: 10px; border-radius: 4px; font-size: 12px; max-height: 200px; overflow: auto; white-space: pre-wrap; word-break: break-all; display: none; }
 .status { text-align: center; margin-bottom: 16px; padding: 10px; background: #16213e; border-radius: 8px; font-size: 14px; }
 .status span { color: #e94560; font-weight: bold; }
+.toolbar { text-align: center; margin-bottom: 16px; }
+.toolbar button { padding: 10px 24px; background: #0f3460; color: #e94560; border: 2px solid #e94560; border-radius: 6px; cursor: pointer; font-size: 14px; font-weight: bold; margin: 0 6px; }
+.toolbar button:hover { background: #e94560; color: #fff; }
 </style>
 </head>
 <body>
 <h1>Snickr API Tester</h1>
 <div class="status">
   Session: <span id="session-info">not logged in</span>
+</div>
+<div class="toolbar">
+  <button onclick="autoFill()">Auto Fill All</button>
+  <button onclick="clearAll()">Clear All</button>
 </div>
 <div class="grid">
 {% for fn in functions %}
@@ -88,6 +95,49 @@ async function callApi(form, fnName) {
     pre.textContent = 'Error: ' + e.message;
   }
   return false;
+}
+
+// Sample data for auto-fill
+const SAMPLE_DATA = {
+  register:                  { email: 'newuser@nyu.edu', username: 'newuser', nickname: 'New', password: 'pass123' },
+  login:                     { email: 'az1234@nyu.edu', password: 'alice123' },
+  logout:                    {},
+  me:                        {},
+  get_workspaces:            {},
+  create_workspace:          { wsname: 'Test Workspace', wsdescription: 'A test workspace' },
+  get_workspace_members:     { wsid: '1' },
+  invite_to_workspace:       { wsid: '1', invitee_uid: '6' },
+  respond_workspace_invite:  { wsid: '2', accept: 'true' },
+  update_workspace_member:   { wsid: '1', target_uid: '3', role: 'admin' },
+  get_channels:              { wsid: '1' },
+  create_channel:            { wsid: '1', chname: 'test-channel', chtype: 'public' },
+  invite_to_channel:         { chid: '1', invitee_uid: '5' },
+  respond_channel_invite:    { chid: '2', accept: 'true' },
+  get_invitations:           {},
+  get_messages:              { chid: '1' },
+  send_message:              { chid: '1', content: 'Hello from auto-fill!' },
+  search_messages:           { keyword: 'perpendicular' },
+  get_user_messages:         { target_uid: '1' },
+  search_users:              { query: 'alice' },
+  get_workspace_admins:      { wsid: '1' },
+  get_pending_channel_invites: { wsid: '1' },
+  initialize:                {},
+};
+
+function autoFill() {
+  document.querySelectorAll('.card').forEach(card => {
+    const fnName = card.querySelector('h3').textContent;
+    const data = SAMPLE_DATA[fnName];
+    if (!data) return;
+    card.querySelectorAll('input').forEach(input => {
+      if (data[input.name] !== undefined) input.value = data[input.name];
+    });
+  });
+}
+
+function clearAll() {
+  document.querySelectorAll('.card input').forEach(i => i.value = '');
+  document.querySelectorAll('.card pre').forEach(p => { p.style.display = 'none'; p.textContent = ''; });
 }
 
 // Check session on load
