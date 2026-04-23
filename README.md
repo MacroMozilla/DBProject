@@ -1,73 +1,103 @@
 # snickr
 
-NYU CS6083 Spring 2026 Database Project — a web-based collaboration system (similar to Slack) built with Django and PostgreSQL.
+NYU CS6083 Spring 2026 Database Project — Slack-like collaboration system built with Django + PostgreSQL.
 
-## Overview
+## Quick Start (Docker)
 
-snickr lets users create **workspaces**, organize conversations into **public, private, and direct channels**, and exchange **messages** within those channels. Access control is enforced at the application level: a single DBMS account is used, and the app restricts visibility based on workspace/channel membership.
+**Prerequisites**: Docker Desktop installed and running.
 
-## Database Schema
+```bash
+# 1. Clone the repo
+git clone <repo-url> && cd DBproject
 
-The database consists of six relations:
+# 2. Create .env file (if not exists)
+echo "POSTGRES_DB=snickr
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+POSTGRES_HOST=db" > .env
 
-| Table | Primary Key | Description |
-|-------|-------------|-------------|
-| `users` | `uid` (serial) | User accounts; `email` is UNIQUE NOT NULL |
-| `workspaces` | `wsid` (serial) | Workspaces that group channels |
-| `workspace_members` | `(wsid, uid)` | M:N membership with role and invitation status |
-| `channels` | `chid` (serial) | Public, private, or direct channels within a workspace |
-| `channel_members` | `(chid, uid)` | M:N membership with role and invitation status |
-| `messages` | `msgid` (serial) | Messages posted to a channel by a user |
+# 3. Build and run
+docker compose up --build
+```
 
-A surrogate integer `uid` is used as the user primary key (rather than `email`) so that users can change their email without cascading FK updates.
+Done. Open **http://localhost:8000** — you'll see the API test page.
+
+### First Time Setup
+
+1. Open http://localhost:8000
+2. Click the **initialize** button to set up the database schema and load test data
+3. Login with any test account (see below)
+
+### Stopping / Resetting
+
+```bash
+# Stop
+docker compose down
+
+# Full reset (wipe database volume)
+docker compose down -v
+docker compose up --build
+```
+
+## Test Accounts
+
+After calling `initialize`, the database has these users:
+
+| Email | Username | Password |
+|-------|----------|----------|
+| az1234@nyu.edu | alicezhang | `alice123` |
+| bs5678@nyu.edu | bobsmith | `bob456` |
+| cw9012@nyu.edu | carolwang | `carol789` |
+| dj3456@nyu.edu | davejohnson | `dave012` |
+| ec7890@nyu.edu | evechen | `eve345` |
+| fl2345@nyu.edu | frankli | `frank678` |
+
+## API
+
+All 23 backend functions go through one endpoint: `POST /api/core`. See **[API.md](API.md)** for the complete reference with parameters, examples, and response formats.
 
 ## Project Structure
 
 ```
-├── DBProject/          # Django project settings
+├── DBProject/
+│   ├── settings.py      # Django settings (DB config via .env)
+│   ├── urls.py           # URL routing → views
+│   └── views.py          # All backend logic (RPC functions)
 ├── sqls/
-│   ├── initialize.sql  # Schema creation (CREATE TABLE statements)
-│   ├── insert.sql      # Test data (6 users, 2 workspaces, 6 channels, 15 messages)
-│   └── query.sql       # Procedures, functions, and queries (7 required operations)
-├── docs/
-│   └── report.tex      # Project report (LaTeX source)
-├── templates/           # Django HTML templates
-├── manage.py
-└── requirements.txt
+│   ├── initialize.sql    # CREATE TABLE statements
+│   ├── insert.sql        # Test data
+│   └── query.sql         # Stored procedures & sample queries
+├── templates/
+│   └── simple/
+│       └── test.html     # API test page (placeholder for frontend)
+├── api.md                # Complete API documentation
+├── docker-compose.yml    # PostgreSQL + Django
+├── Dockerfile
+├── .env                  # DB credentials (not in git)
+├── requirements.txt
+└── release.yaml          # Version tag for Docker builds
 ```
+
+### For Frontend Development
+
+The `templates/` directory is where the frontend goes. Currently `templates/simple/test.html` is a basic API tester. Your frontend should:
+
+1. Live in `templates/` (Django will serve it)
+2. Call `POST /api/core` with the same JSON-RPC pattern
+3. Include `credentials: "include"` in fetch calls for session auth
 
 ## Tech Stack
 
-- **Backend**: Django 5.2.13
-- **Database**: PostgreSQL (via psycopg)
-- **Python**: 3.11.9
+- **Backend**: Django 5.2, raw SQL (no ORM)
+- **Database**: PostgreSQL 15
+- **Container**: Docker Compose
 
-## Getting Started
+## CI/CD
 
-### 1. Install dependencies
+GitHub Actions workflow (`.github/workflows/docker-build.yml`) builds and pushes to Docker Hub on manual trigger. Requires two repository secrets:
 
-```bash
-pip install -r requirements.txt
-```
-
-### 2. Configure database
-
-Update `DBProject/settings.py` with your PostgreSQL credentials.
-
-### 3. Initialize the schema and test data
-
-```bash
-psql -U <user> -d <dbname> -f sqls/initialize.sql
-psql -U <user> -d <dbname> -f sqls/insert.sql
-```
-
-### 4. Run the server
-
-```bash
-python manage.py runserver
-```
-
-The app will be available at `http://127.0.0.1:8000/`.
+- `DOCKERHUB_USERNAME` — Docker Hub username
+- `DOCKERHUB_TOKEN` — Docker Hub access token
 
 ## Authors
 

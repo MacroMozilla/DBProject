@@ -20,6 +20,10 @@ from api import views
 
 urlpatterns = [
     path('admin/', admin.site.urls),
+    path('api/core', views.api_core),
+    path('api/functions', views.api_functions),
+    path('test/', views.test_page),
+    path('', views.test_page),
     path('messages/', views.get_messages),
     path("send-message/", views.send_message),
     path("channels/", views.get_channels),
