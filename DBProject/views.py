@@ -432,7 +432,7 @@ def test_page(request):
         sig = inspect.signature(fn)
         params = [p for p in sig.parameters if p != "request"]
         fn_list.append({"name": name, "params": params})
-    return render(request, "test.html", {"functions": fn_list})
+    return render(request, "simple/test.html", {"functions": fn_list})
 
 
 # ── the single RPC endpoint ────────────────────────────────────
