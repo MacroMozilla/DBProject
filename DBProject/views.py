@@ -101,7 +101,7 @@ def get_workspaces(request):
             "SELECT w.wsid, w.wsname, w.wsdescription, wm.role, wm.status "
             "FROM workspaces w "
             "JOIN workspace_members wm ON w.wsid = wm.wsid "
-            "WHERE wm.uid = %s ORDER BY w.wsid",
+            "WHERE wm.uid = %s AND wm.status = 'accepted' ORDER BY w.wsid",
             [uid],
         )
         return _dictfetchall(c)

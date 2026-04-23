@@ -1,29 +1,29 @@
 const BASE_URL = "http://localhost:8000/api/core";
 
-// Core RPC helper
 export const apiCall = async (func, args = [], kwargs = {}) => {
   const res = await fetch(BASE_URL, {
     method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-    },
+    headers: { "Content-Type": "application/json" },
     credentials: "include",
     body: JSON.stringify({
       function: func,
-      args: args,
-      kwargs: kwargs,
+      args,
+      kwargs,
     }),
   });
 
   const data = await res.json();
+  console.log("API RAW RESPONSE:", data);
 
-  // Handle errors
-  if (data.error) {
-    throw new Error(data.error);
+  if (!data.ok) {
+    throw new Error(data.error || "API error");
   }
 
-  // Return actual result
-  return data.result;
+  if (data.data?.error) {
+    throw new Error(data.data.error);
+  }
+
+  return data.data;
 };
 
 // AUTH
