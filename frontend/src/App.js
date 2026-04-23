@@ -1,104 +1,34 @@
 import { useEffect, useState } from "react";
-import Inbox from "./components/Inbox";
-import WorkspaceList from "./components/WorkspaceList";
-import ChannelList from "./components/ChannelList";
-import ChatWindow from "./components/ChatWindow";
-
-import {
-fetchWorkspaces,
-fetchChannels,
-fetchMessages,
-fetchInvites,
-sendMessage,
-acceptInvite,
-rejectInvite,
-} from "./services/api";
+import { apiCall } from "./services/api";
+import LoginPage from "./pages/LoginPage";
+import ChatPage from "./pages/ChatPage";
 
 function App() {
-const [messages, setMessages] = useState([]);
-const [channels, setChannels] = useState([]);
-const [workspaces, setWorkspaces] = useState([]);
-const [invites, setInvites] = useState([]);
-const [input, setInput] = useState("");
-const [showInbox, setShowInbox] = useState(false);
+  const [user, setUser] = useState(null);
+  const [loading, setLoading] = useState(true);
 
-const [wsid, setWsid] = useState(1);
-const [chid, setChid] = useState(1);
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const me = await apiCall("me");
+        setUser(me);
+      } catch {
+        setUser(null);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-const uid = 1;
+    checkSession();
+  }, []);
 
-useEffect(() => {
-fetchWorkspaces(uid).then(setWorkspaces);
-fetchInvites(uid).then(setInvites);
-}, []);
+  if (loading) return <div>Loading...</div>;
 
-useEffect(() => {
-fetchChannels(wsid).then((data) => {
-setChannels(data);
-if (data.length > 0) setChid(data[0].chid);
-});
-}, [wsid]);
+  if (!user) {
+    return <LoginPage setUser={setUser} />;
+  }
 
-useEffect(() => {
-fetchMessages(chid).then(setMessages);
-}, [chid]);
-
-useEffect(() => {
-const handleClick = () => setShowInbox(false);
-if (showInbox) window.addEventListener("click", handleClick);
-return () => window.removeEventListener("click", handleClick);
-}, [showInbox]);
-
-const handleSend = async () => {
-if (!input.trim()) return;
-await sendMessage(chid, uid, input);
-setInput("");
-fetchMessages(chid).then(setMessages);
-};
-
-const handleAccept = async (wsid) => {
-await acceptInvite(wsid, uid);
-fetchInvites(uid).then(setInvites);
-fetchWorkspaces(uid).then(setWorkspaces);
-};
-
-const handleReject = async (wsid) => {
-await rejectInvite(wsid, uid);
-fetchInvites(uid).then(setInvites);
-};
-
-return (
-<div style={{ padding: "20px" }}> <Inbox
-     invites={invites}
-     showInbox={showInbox}
-     setShowInbox={setShowInbox}
-     onAccept={handleAccept}
-     onReject={handleReject}
-   />
-
-  <div style={{ display: "flex" }}>
-    <WorkspaceList
-      workspaces={workspaces}
-      wsid={wsid}
-      setWsid={setWsid}
-    />
-
-    <ChannelList
-      channels={channels}
-      chid={chid}
-      setChid={setChid}
-    />
-
-    <ChatWindow
-      messages={messages}
-      input={input}
-      setInput={setInput}
-      sendMessage={handleSend}
-      chid={chid}
-    />
-  </div>
-</div>
-);
+  return <ChatPage user={user} setUser={setUser} />;
 }
 
 export default App;

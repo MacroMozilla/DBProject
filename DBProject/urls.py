@@ -16,19 +16,11 @@ Including another URLconf
 """
 from django.contrib import admin
 from django.urls import path
-from api import views 
+from . import views 
 
 urlpatterns = [
     path('admin/', admin.site.urls),
     path('api/core', views.api_core),
     path('api/functions', views.api_functions),
-    path('test/', views.test_page),
     path('', views.test_page),
-    path('messages/', views.get_messages),
-    path("send-message/", views.send_message),
-    path("channels/", views.get_channels),
-    path("workspaces/", views.get_workspaces),
-    path("invites/", views.get_invites),
-    path("accept-invite/", views.accept_invite),
-    path("reject-invite/", views.reject_invite),
 ]

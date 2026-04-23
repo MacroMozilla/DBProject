@@ -51,19 +51,25 @@ def register(request, email, username, nickname, password):
 
 
 @rpc
-def login(request, email, password):
+def login(request, username, password):
     with connection.cursor() as c:
         c.execute(
-            "SELECT uid, email, username, nickname, pwhash FROM users WHERE email = %s",
-            [email],
+            """
+            SELECT uid, email, username, nickname, pwhash
+            FROM users
+            WHERE username = %s
+            """,
+            [username],
         )
         user = _dictfetchone(c)
+
     if not user or user["pwhash"] != _hash(password):
         return {"error": "invalid credentials"}
+
     request.session["uid"] = user["uid"]
+
     del user["pwhash"]
     return user
-
 
 @rpc
 def logout(request):

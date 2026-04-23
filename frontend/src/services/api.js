@@ -1,45 +1,72 @@
-const BASE_URL = "http://localhost:8000";
+const BASE_URL = "http://localhost:8000/api/core";
 
-export const fetchWorkspaces = async (uid) => {
-const res = await fetch(`${BASE_URL}/workspaces/?uid=${uid}`);
-return res.json();
+// Core RPC helper
+export const apiCall = async (func, args = [], kwargs = {}) => {
+  const res = await fetch(BASE_URL, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+    },
+    credentials: "include",
+    body: JSON.stringify({
+      function: func,
+      args: args,
+      kwargs: kwargs,
+    }),
+  });
+
+  const data = await res.json();
+
+  // Handle errors
+  if (data.error) {
+    throw new Error(data.error);
+  }
+
+  // Return actual result
+  return data.result;
 };
 
-export const fetchChannels = async (wsid) => {
-const res = await fetch(`${BASE_URL}/channels/?wsid=${wsid}`);
-return res.json();
-};
+// AUTH
+export const login = (username, password) =>
+  apiCall("login", [], { username, password });
 
-export const fetchMessages = async (chid) => {
-const res = await fetch(`${BASE_URL}/messages/?chid=${chid}`);
-return res.json();
-};
+export const register = (email, username, nickname, password) =>
+  apiCall("register", [], { email, username, nickname, password });
 
-export const fetchInvites = async (uid) => {
-const res = await fetch(`${BASE_URL}/invites/?uid=${uid}`);
-return res.json();
-};
+export const logout = () =>
+  apiCall("logout");
 
-export const sendMessage = async (chid, uid, content) => {
-await fetch(`${BASE_URL}/send-message/`, {
-method: "POST",
-headers: {"Content-Type": "application/json"},
-body: JSON.stringify({ chid, uid, content }),
-});
-};
+// WORKSPACES
+export const fetchWorkspaces = () =>
+  apiCall("get_workspaces");
 
-export const acceptInvite = async (wsid, uid) => {
-await fetch(`${BASE_URL}/accept-invite/`, {
-method: "POST",
-headers: {"Content-Type": "application/json"},
-body: JSON.stringify({ wsid, uid }),
-});
-};
+export const createWorkspace = (name, description, usernames) =>
+  apiCall("create_workspace", [], { name, description, usernames });
 
-export const rejectInvite = async (wsid, uid) => {
-await fetch(`${BASE_URL}/reject-invite/`, {
-method: "POST",
-headers: {"Content-Type": "application/json"},
-body: JSON.stringify({ wsid, uid }),
-});
-};
+// CHANNELS
+export const fetchChannels = (wsid) =>
+  apiCall("get_channels", [wsid]);
+
+export const createChannel = (wsid, name, type, usernames) =>
+  apiCall("create_channel", [], { wsid, name, type, usernames });
+
+// MESSAGES
+export const fetchMessages = (chid) =>
+  apiCall("get_messages", [chid]);
+
+export const sendMessage = (chid, content) =>
+  apiCall("send_message", [chid, content]);
+
+// INVITES
+export const fetchInvites = () =>
+  apiCall("get_invitations");
+
+export const acceptInvite = (id, type) =>
+  type === "workspace"
+    ? apiCall("respond_workspace_invite", [id, true])
+    : apiCall("respond_channel_invite", [id, true]);
+
+export const rejectInvite = (id, type) =>
+  type === "workspace"
+    ? apiCall("respond_workspace_invite", [id, false])
+    : apiCall("respond_channel_invite", [id, false]);
