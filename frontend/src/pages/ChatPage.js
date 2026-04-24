@@ -9,6 +9,7 @@ import CreateChannelModal from "../components/CreateChannelModal";
 import WorkspaceMembersModal from "../components/WorkspaceMembersModal";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import DiscoverChannelsModal from "../components/DiscoverChannelsModal";
+import SearchModal from "../components/SearchModal";
 
 import {
   fetchWorkspaces,
@@ -19,6 +20,7 @@ import {
   acceptInvite,
   rejectInvite,
   createChannel,
+  markChannelRead,
   logout,
 } from "../services/api";
 
@@ -36,6 +38,7 @@ function ChatPage({ user, setUser }) {
   const [showWsMembers, setShowWsMembers] = useState(false);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
+  const [showSearch, setShowSearch] = useState(false);
 
   const [wsid, setWsid] = useState(null);
   const [chid, setChid] = useState(null);
@@ -58,11 +61,17 @@ function ChatPage({ user, setUser }) {
   }, [wsid]);
 
   // =========================
-  // LOAD MESSAGES
+  // LOAD MESSAGES + MARK READ
   // =========================
   useEffect(() => {
     if (!chid) return;
     fetchMessages(chid).then(setMessages);
+    // Mark read and clear the badge — fire and forget, no wsid dependency needed
+    markChannelRead(chid).then(() => {
+      setChannels((prev) =>
+        prev.map((ch) => ch.chid === chid ? { ...ch, unread_count: 0 } : ch)
+      );
+    });
   }, [chid]);
 
   // =========================
@@ -82,12 +91,15 @@ function ChatPage({ user, setUser }) {
     await sendMessage(chid, input);
     setInput("");
     fetchMessages(chid).then(setMessages);
+    markChannelRead(chid);
   };
 
   const handleAccept = async (id, type) => {
     await acceptInvite(id, type);
     fetchInvites().then(setInvites);
     fetchWorkspaces().then(setWorkspaces);
+    // If a channel invite was accepted, refresh the channel list immediately
+    if (type === "channel" && wsid) fetchChannels(wsid).then(setChannels);
   };
 
   const handleReject = async (id, type) => {
@@ -115,6 +127,12 @@ function ChatPage({ user, setUser }) {
     fetchWorkspaces().then(setWorkspaces);
   };
 
+  const handleJumpTo = (wsid, chid) => {
+    setWsid(wsid);
+    // channels will load via useEffect, then we set chid after a tick
+    setTimeout(() => setChid(chid), 100);
+  };
+
   const handleChannelGone = async () => {
     setChid(null);
     setMessages([]);
@@ -135,6 +153,14 @@ function ChatPage({ user, setUser }) {
 
         <div className="flex items-center gap-4 relative">
           <span className="text-sm">{user.username}</span>
+
+          {/* SEARCH */}
+          <button
+            onClick={() => setShowSearch(true)}
+            className="bg-white/10 px-3 py-1 rounded hover:bg-white/20 text-sm"
+          >
+            🔍 Search
+          </button>
 
           <div className="relative">
             <button
@@ -270,6 +296,13 @@ function ChatPage({ user, setUser }) {
           onClose={() => setShowChannelSettings(false)}
           onDeleted={handleChannelGone}
           onLeft={handleChannelGone}
+        />
+      )}
+
+      {showSearch && (
+        <SearchModal
+          onClose={() => setShowSearch(false)}
+          onJumpTo={handleJumpTo}
         />
       )}
 
