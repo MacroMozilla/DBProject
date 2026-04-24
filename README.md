@@ -6,14 +6,16 @@ NYU CS6083 Spring 2026 Database Project — A Slack-like collaboration platform 
 
 ## Overview
 
-Snickr is a real-time-style messaging and collaboration system that supports:
+Snickr is a messaging and collaboration system that supports:
 
 - User authentication (login/register/logout)
 - Multiple workspaces per user
 - Channel-based messaging (public, private, direct)
-- Workspace & channel invitations
+- Workspace & channel invitations with inbox management
 - Role-based access (creator, admin, member)
-- Inbox for managing invitations
+- Workspace member management (invite, remove, promote/demote)
+- Channel discovery and self-join for public channels
+- Channel settings (add members, leave, delete)
 - Persistent message history
 
 ---
@@ -88,7 +90,7 @@ After calling `initialize`, the database has these users:
 
 ## API
 
-All 23 backend functions go through one endpoint: `POST /api/core`. See **[API.md](API.md)** for the complete reference with parameters, examples, and response formats.
+All backend functions go through one endpoint: `POST /api/core`. See **[API.md](API.md)** for the complete reference.
 
 **Request format:**
 
@@ -109,6 +111,22 @@ All 23 backend functions go through one endpoint: `POST /api/core`. See **[API.m
 }
 ```
 
+### Available RPC Functions
+
+**Auth:** `register`, `login`, `logout`, `me`
+
+**Workspaces:** `get_workspaces`, `create_workspace`, `delete_workspace`, `get_workspace_members`, `invite_to_workspace`, `respond_workspace_invite`, `update_workspace_member`, `leave_workspace`
+
+**Channels:** `get_channels`, `create_channel`, `delete_channel`, `get_channel_members`, `invite_to_channel`, `respond_channel_invite`, `join_channel`, `leave_channel`, `get_public_channels`
+
+**Messages:** `get_messages`, `send_message`, `search_messages`, `get_user_messages`
+
+**Users:** `search_users`
+
+**Reports:** `get_workspace_admins`, `get_pending_channel_invites`
+
+**Admin:** `initialize`
+
 ---
 
 ## Project Structure
@@ -127,17 +145,20 @@ All 23 backend functions go through one endpoint: `POST /api/core`. See **[API.m
 │   │   ├── pages/
 │   │   │   ├── LoginPage.js
 │   │   │   ├── RegisterPage.js
-│   │   │   └── ChatPage.js
+│   │   │   └── ChatPage.js          # Main layout, state, modal wiring
 │   │   ├── components/
-│   │   │   ├── Inbox.js
-│   │   │   ├── WorkspaceList.js
-│   │   │   ├── ChannelList.js
-│   │   │   ├── ChatWindow.js
-│   │   │   ├── Modal.js
+│   │   │   ├── Inbox.js             # Invite notifications dropdown
+│   │   │   ├── WorkspaceList.js     # Workspace sidebar list
+│   │   │   ├── ChannelList.js       # Channel sidebar list
+│   │   │   ├── ChatWindow.js        # Message display + input
+│   │   │   ├── Modal.js             # Base modal wrapper
 │   │   │   ├── CreateWorkspaceModal.js
-│   │   │   └── CreateChannelModal.js
+│   │   │   ├── CreateChannelModal.js
+│   │   │   ├── WorkspaceMembersModal.js  # Invite, remove, promote, leave, delete
+│   │   │   ├── ChannelSettingsModal.js   # Add members, leave, delete channel
+│   │   │   └── DiscoverChannelsModal.js  # Browse & join public channels
 │   │   ├── services/
-│   │   │   └── api.js
+│   │   │   └── api.js               # All RPC wrappers
 │   │   └── App.js
 ├── templates/
 │   └── simple/
@@ -149,14 +170,6 @@ All 23 backend functions go through one endpoint: `POST /api/core`. See **[API.m
 ├── requirements.txt
 └── release.yaml          # Version tag for Docker builds
 ```
-
-### For Frontend Development
-
-The `templates/` directory is where the frontend goes. Currently `templates/simple/test.html` is a basic API tester. Your frontend should:
-
-1. Live in `templates/` (Django will serve it)
-2. Call `POST /api/core` with the same JSON-RPC pattern
-3. Include `credentials: "include"` in fetch calls for session auth
 
 ---
 
@@ -172,43 +185,46 @@ The `templates/` directory is where the frontend goes. Currently `templates/simp
 ## Authentication
 
 - Session-based authentication (Django sessions)
-- Frontend must include `credentials: "include"` on all requests
-- `me` endpoint checks the active session
+- Frontend includes `credentials: "include"` on all fetch calls
+- `me` endpoint validates the active session on page load
 
 ---
 
 ## Key Features
 
-### Core
-- Create account / login / logout
-- Create workspaces and channels
-- Send and view messages
+### Workspaces
+- Create workspaces with an optional description
+- Invite users by username at creation time or later
+- Creators and admins can invite members, remove members, and promote/demote to admin
+- Creators can delete the workspace (cascades to all channels and messages)
+- Non-creators can leave a workspace
 
-### Membership
-- Invite users to workspaces
-- Accept / reject invitations
-- Channel membership tracking
+### Channels
+- Three channel types: **public** (anyone in workspace can join), **private** (invite only), **direct** (exactly two users)
+- Direct channel names autopopulate as `DM - username`
+- Any workspace member can create a channel
+- Channel creators can add members and delete the channel
+- Anyone can leave a channel
+- Public channels are discoverable via the Browse button — join with one click
 
 ### Messaging
-- Channel-based messaging
-- Chronological ordering
-- Per-channel message loading
+- Messages ordered chronologically per channel
+- Session-based authorship — messages show your username
 
-### UI
-- Sidebar navigation (workspaces + channels)
-- Inbox dropdown for invitations
-- Chat-style message bubbles
-- Modal-based creation flows
+### Inbox
+- Pending workspace and channel invites appear in the Inbox dropdown
+- Accept or reject each invite individually
 
 ---
 
 ## Design Decisions
 
 - **RPC over REST** for simplicity
-- **Raw SQL only** (course requirement)
+- **Raw SQL only** (course requirement — no ORM)
 - **Composite keys** for membership tables
 - **`status` field** (`pending`, `accepted`, `rejected`) for invitations
-- **Channel-level read tracking** via `last_read_msgid`
+- **Application-level access control** — a single DB user, permissions enforced in Python
+- **Cascade deletes** handled manually in SQL (messages → channel members → channels → workspace members → workspace)
 
 ---
 
@@ -223,10 +239,10 @@ GitHub Actions workflow (`.github/workflows/docker-build.yml`) builds and pushes
 
 ## Known Limitations
 
-- No WebSocket real-time updates (polling only)
+- No WebSocket real-time updates (polling only — refresh to see new messages)
 - No message editing or deleting
 - No file/image uploads
-- No search UI (backend exists)
+- No search UI (backend `search_messages` exists but no frontend page yet)
 
 ---
 
