@@ -103,6 +103,9 @@ export const deleteChannel = (chid) =>
 export const fetchPublicChannels = (wsid) =>
   apiCall("get_public_channels", [wsid]);
 
+export const markChannelRead = (chid) =>
+  apiCall("mark_channel_read", [chid]);
+
 
 
 // ================= MESSAGES =================
@@ -139,8 +142,6 @@ export const rejectInvite = (id, type) =>
 
 export const searchUsers = (query) =>
   apiCall("search_users", [query]);
-
-
 
 // ================= UTIL =================
 

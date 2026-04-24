@@ -215,15 +215,63 @@ def get_channels(request, wsid):
         return {"error": "not logged in"}
     with connection.cursor() as c:
         c.execute(
-            "SELECT c.chid, c.chname, c.chtype "
-            "FROM channels c "
-            "LEFT JOIN channel_members cm ON c.chid = cm.chid AND cm.uid = %s "
-            "WHERE c.wsid = %s "
-            "  AND (c.chtype = 'public' OR (cm.uid IS NOT NULL AND cm.status = 'accepted')) "
-            "ORDER BY c.chtype, c.chname",
+            """
+            SELECT c.chid, c.chname, c.chtype,
+                   COALESCE((
+                       SELECT COUNT(*)
+                       FROM messages m
+                       WHERE m.chid = c.chid
+                         AND (cm.last_read_msgid IS NULL OR m.msgid > cm.last_read_msgid)
+                   ), 0) AS unread_count
+            FROM channels c
+            INNER JOIN channel_members cm ON c.chid = cm.chid AND cm.uid = %s
+            WHERE c.wsid = %s
+              AND cm.status = 'accepted'
+            ORDER BY c.chtype, c.chname
+            """,
             [uid, wsid],
         )
         return _dictfetchall(c)
+
+
+@rpc
+def mark_channel_read(request, chid):
+    uid = request.session.get("uid")
+    if not uid:
+        return {"error": "not logged in"}
+    with connection.cursor() as c:
+        c.execute(
+            """
+            UPDATE channel_members
+            SET last_read_msgid = (
+                SELECT COALESCE(MAX(msgid), 0) FROM messages WHERE chid = %s
+            ),
+            updatedat = CURRENT_TIMESTAMP
+            WHERE chid = %s AND uid = %s
+            """,
+            [chid, chid, uid],
+        )
+    return {"ok": True}
+
+
+@rpc
+def mark_channel_read(request, chid):
+    uid = request.session.get("uid")
+    if not uid:
+        return {"error": "not logged in"}
+    with connection.cursor() as c:
+        c.execute(
+            """
+            UPDATE channel_members
+            SET last_read_msgid = (
+                SELECT COALESCE(MAX(msgid), 0) FROM messages WHERE chid = %s
+            ),
+            updatedat = CURRENT_TIMESTAMP
+            WHERE chid = %s AND uid = %s
+            """,
+            [chid, chid, uid],
+        )
+    return {"ok": True}
 
 
 @rpc
@@ -347,16 +395,21 @@ def search_messages(request, keyword):
         return {"error": "not logged in"}
     with connection.cursor() as c:
         c.execute(
-            "SELECT m.msgid, c.chname, u.username AS author, m.content, "
-            "       to_char(m.postat, 'YYYY-MM-DD\"T\"HH24:MI:SS') AS postat "
-            "FROM messages m "
-            "JOIN channels c ON m.chid = c.chid "
-            "JOIN users u ON m.uid = u.uid "
-            "JOIN channel_members cm ON c.chid = cm.chid AND cm.uid = %s "
-            "JOIN workspace_members wm ON c.wsid = wm.wsid AND wm.uid = %s "
-            "WHERE cm.status = 'accepted' AND wm.status = 'accepted' "
-            "  AND m.content ILIKE '%%' || %s || '%%' "
-            "ORDER BY m.postat DESC",
+            """
+            SELECT m.msgid, m.chid, c.chname, c.wsid,
+                   w.wsname, u.username AS author, m.content,
+                   to_char(m.postat, 'YYYY-MM-DD"T"HH24:MI:SS') AS postat
+            FROM messages m
+            JOIN channels c ON m.chid = c.chid
+            JOIN workspaces w ON c.wsid = w.wsid
+            JOIN users u ON m.uid = u.uid
+            JOIN channel_members cm ON c.chid = cm.chid AND cm.uid = %s
+            JOIN workspace_members wm ON c.wsid = wm.wsid AND wm.uid = %s
+            WHERE cm.status = 'accepted' AND wm.status = 'accepted'
+              AND m.content ILIKE '%%' || %s || '%%'
+            ORDER BY m.postat DESC
+            LIMIT 50
+            """,
             [uid, uid, keyword],
         )
         return _dictfetchall(c)
