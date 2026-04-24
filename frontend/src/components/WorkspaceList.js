@@ -1,28 +1,32 @@
-function WorkspaceList({ workspaces, wsid, setWsid }) {
-  // Ensure workspaces is always an array
-  const safeWorkspaces = Array.isArray(workspaces) ? workspaces : [];
-
+function WorkspaceList({ workspaces, wsid, setWsid, onCreateWorkspace }) {
   return (
-    <div style={{ width: "150px", marginRight: "20px" }}>
-      <h3>Workspaces</h3>
+    <div>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-sm font-semibold opacity-70">WORKSPACES</h3>
 
-      {safeWorkspaces.length === 0 ? (
-        <p>No workspaces</p>
-      ) : (
-        safeWorkspaces.map((ws) => (
-          <div
-            key={ws.wsid}
-            onClick={() => setWsid(ws.wsid)}
-            style={{
-              cursor: "pointer",
-              padding: "5px",
-              background: wsid === ws.wsid ? "#ccc" : "transparent",
-            }}
-          >
-            {ws.wsname}
-          </div>
-        ))
+        <button
+          onClick={onCreateWorkspace}
+          className="bg-white/10 px-2 rounded hover:bg-white/20"
+        >
+          +
+        </button>
+      </div>
+
+      {workspaces.length === 0 && (
+        <div className="text-sm opacity-60">No workspaces</div>
       )}
+
+      {workspaces.map((ws) => (
+        <div
+          key={ws.wsid}
+          onClick={() => setWsid(ws.wsid)}
+          className={`p-2 rounded cursor-pointer ${
+            wsid === ws.wsid ? "bg-white/20" : "hover:bg-white/10"
+          }`}
+        >
+          {ws.wsname}
+        </div>
+      ))}
     </div>
   );
 }

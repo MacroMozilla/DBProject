@@ -1,45 +1,36 @@
-function Inbox({ invites, showInbox, setShowInbox, onAccept, onReject }) {
-return (
-<>
-<button
-onClick={(e) => {
-e.stopPropagation();
-setShowInbox(!showInbox);
-}}
->
-Inbox ({invites?.length || 0}) </button>
-  {showInbox && (
+function Inbox({ invites, onAccept, onReject }) {
+  return (
     <div
+      className="absolute right-0 mt-2 w-72 bg-white text-gray-900 border rounded shadow-lg p-4 z-50"
       onClick={(e) => e.stopPropagation()}
-      style={{
-        position: "absolute",
-        top: "60px",
-        left: "20px",
-        background: "white",
-        border: "1px solid #ccc",
-        padding: "10px",
-        width: "250px",
-        zIndex: 1000,
-        borderRadius: "6px",
-        boxShadow: "0 2px 8px rgba(0,0,0,0.2)"
-      }}
     >
-      <h3>Invites</h3>
+      <h3 className="font-semibold mb-3">Invites</h3>
 
-      {(invites?.length || 0) === 0 && <p>No invites</p>}
+      {(!invites || invites.length === 0) && (
+        <p className="text-gray-500 text-sm">No invites</p>
+      )}
 
-      {(invites || []).map((inv) => (
-        <div key={inv.id} style={{ marginBottom: "12px" }}>
-          <strong>{inv.type}</strong>: {inv.name}
+      {invites.map((inv) => (
+        <div key={inv.id} className="mb-4 border-b pb-2">
 
-          <div style={{ marginTop: "5px" }}>
-            <button onClick={() => onAccept(inv.id, inv.type)}>
+          {/* THIS LINE WAS MISSING / BROKEN */}
+          <div className="text-sm font-medium mb-2">
+            {inv.type === "workspace"
+              ? `Workspace: ${inv.name}`
+              : `Channel: ${inv.name}`}
+          </div>
+
+          <div className="flex gap-2">
+            <button
+              onClick={() => onAccept(inv.id, inv.type)}
+              className="bg-green-500 text-white px-3 py-1 rounded hover:bg-green-600"
+            >
               Accept
             </button>
 
             <button
               onClick={() => onReject(inv.id, inv.type)}
-              style={{ marginLeft: "6px" }}
+              className="bg-red-500 text-white px-3 py-1 rounded hover:bg-red-600"
             >
               Reject
             </button>
@@ -47,9 +38,7 @@ Inbox ({invites?.length || 0}) </button>
         </div>
       ))}
     </div>
-  )}
-</>
-);
+  );
 }
 
 export default Inbox;

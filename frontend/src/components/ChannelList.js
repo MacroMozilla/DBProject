@@ -1,28 +1,32 @@
-function ChannelList({ channels, chid, setChid }) {
-  // Make sure channels is always an array
-  const safeChannels = Array.isArray(channels) ? channels : [];
-
+function ChannelList({ channels, chid, setChid, onCreateChannel }) {
   return (
-    <div style={{ width: "200px", marginRight: "20px" }}>
-      <h3>Channels</h3>
+    <div>
+      <div className="flex justify-between items-center mb-3">
+        <h3 className="text-sm font-semibold opacity-70">CHANNELS</h3>
 
-      {safeChannels.length === 0 ? (
-        <p>No channels</p>
-      ) : (
-        safeChannels.map((ch) => (
-          <div
-            key={ch.chid}
-            onClick={() => setChid(ch.chid)}
-            style={{
-              cursor: "pointer",
-              padding: "5px",
-              background: chid === ch.chid ? "#ddd" : "transparent",
-            }}
-          >
-            #{ch.chname || "DM"}
-          </div>
-        ))
+        <button
+          onClick={onCreateChannel}
+          className="bg-gray-300 px-2 rounded hover:bg-gray-400"
+        >
+          +
+        </button>
+      </div>
+
+      {channels.length === 0 && (
+        <div className="text-sm text-gray-500">No channels</div>
       )}
+
+      {channels.map((ch) => (
+        <div
+          key={ch.chid}
+          onClick={() => setChid(ch.chid)}
+          className={`p-2 rounded cursor-pointer ${
+            chid === ch.chid ? "bg-gray-300" : "hover:bg-gray-200"
+          }`}
+        >
+          # {ch.chname || "DM"}
+        </div>
+      ))}
     </div>
   );
 }
