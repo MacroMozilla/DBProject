@@ -84,7 +84,7 @@ function ChatPage({ user, setUser }) {
   // ACTIONS
   // =========================
   const handleSend = async () => {
-    if (!input.trim()) return;
+    if (!input.trim() || !chid) return;
     await sendMessage(chid, input);
     setInput("");
     fetchMessages(chid).then(setMessages);
