@@ -10,7 +10,6 @@ import WorkspaceMembersModal from "../components/WorkspaceMembersModal";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import DiscoverChannelsModal from "../components/DiscoverChannelsModal";
 import SearchModal from "../components/SearchModal";
-import SearchModal from "../components/SearchModal";
 
 import {
   fetchWorkspaces,

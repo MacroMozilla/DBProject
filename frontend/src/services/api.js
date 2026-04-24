@@ -140,11 +140,6 @@ export const rejectInvite = (id, type) =>
 export const searchUsers = (query) =>
   apiCall("search_users", [query]);
 
-export const searchMessages = (keyword) =>
-  apiCall("search_messages", [keyword]);
-
-
-
 // ================= UTIL =================
 
 export const refreshAll = async () => {
