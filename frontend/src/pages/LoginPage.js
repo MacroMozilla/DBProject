@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { login, apiCall } from "../services/api";
 
-function LoginPage({ setUser }) {
+function LoginPage({ setUser, goToRegister}) {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
@@ -63,7 +63,7 @@ function LoginPage({ setUser }) {
 
         <p className="text-center text-sm text-gray-500 mt-4">
           Don’t have an account?{" "}
-          <span className="text-[#240057] cursor-pointer hover:underline">
+          <span onClick={goToRegister} className="text-[#240057] cursor-pointer hover:underline" >
             Register
           </span>
         </p>

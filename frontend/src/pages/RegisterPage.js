@@ -22,67 +22,77 @@ function RegisterPage({ setUser, goToLogin }) {
     try {
       await register(email, username, nickname, password);
 
-      // auto-login after register
       const me = await apiCall("me");
       setUser(me);
-
     } catch (err) {
       alert("Registration failed");
     }
   };
 
   return (
-    <div style={{ padding: "40px", maxWidth: "400px", margin: "auto" }}>
-      <h2>Register</h2>
+    <div className="min-h-screen flex items-center justify-center bg-[#240057]">
+      <div className="bg-white rounded-2xl shadow-lg p-8 w-full max-w-md">
 
-      <input
-        placeholder="Email"
-        value={email}
-        onChange={(e) => setEmail(e.target.value)}
-      />
-      <br />
+        <h2 className="text-2xl font-bold text-center text-[#240057] mb-6">
+          Create Account
+        </h2>
 
-      <input
-        placeholder="Username"
-        value={username}
-        onChange={(e) => setUsername(e.target.value)}
-      />
-      <br />
+        <div className="space-y-4">
+          <input
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#240057]"
+            placeholder="Email"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+          />
 
-      <input
-        placeholder="Nickname"
-        value={nickname}
-        onChange={(e) => setNickname(e.target.value)}
-      />
-      <br />
+          <input
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#240057]"
+            placeholder="Username"
+            value={username}
+            onChange={(e) => setUsername(e.target.value)}
+          />
 
-      <input
-        type="password"
-        placeholder="Password"
-        value={password}
-        onChange={(e) => setPassword(e.target.value)}
-      />
-      <br />
+          <input
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#240057]"
+            placeholder="Nickname"
+            value={nickname}
+            onChange={(e) => setNickname(e.target.value)}
+          />
 
-      <input
-        type="password"
-        placeholder="Confirm Password"
-        value={confirm}
-        onChange={(e) => setConfirm(e.target.value)}
-      />
-      <br />
+          <input
+            type="password"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#240057]"
+            placeholder="Password"
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+          />
 
-      <button onClick={handleRegister}>Register</button>
+          <input
+            type="password"
+            className="w-full border border-gray-300 rounded-lg px-4 py-2 focus:outline-none focus:ring-2 focus:ring-[#240057]"
+            placeholder="Confirm Password"
+            value={confirm}
+            onChange={(e) => setConfirm(e.target.value)}
+          />
+        </div>
 
-      <p style={{ marginTop: "10px" }}>
-        Already have an account?{" "}
-        <span
-          onClick={goToLogin}
-          style={{ color: "blue", cursor: "pointer" }}
+        <button
+          onClick={handleRegister}
+          className="w-full mt-6 bg-[#240057] text-white py-2 rounded-lg hover:bg-purple-900 transition"
         >
-          Login
-        </span>
-      </p>
+          Register
+        </button>
+
+        <p className="text-center text-sm mt-4">
+          Already have an account?{" "}
+          <span
+            onClick={goToLogin}
+            className="text-[#240057] font-semibold cursor-pointer hover:underline"
+          >
+            Login
+          </span>
+        </p>
+      </div>
     </div>
   );
 }
