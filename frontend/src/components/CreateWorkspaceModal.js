@@ -1,6 +1,6 @@
 import { useState } from "react";
 import Modal from "./Modal";
-import { apiCall } from "../services/api";
+import { createWorkspace, searchUsers, inviteToWorkspace } from "../services/api";
 
 function CreateWorkspaceModal({ onClose, onCreate }) {
   const [name, setName] = useState("");
@@ -16,57 +16,47 @@ function CreateWorkspaceModal({ onClose, onCreate }) {
     setLoading(true);
     setError("");
 
-    // 1. Create the workspace (backend only takes name + description)
-    const usernames = userInput
-      .split(",")
-      .map((u) => u.trim())
-      .filter((u) => u.length > 0);
-
-    // onCreate handles the createWorkspace call and refreshes the list
-    // We need the wsid back to send invites, so we call the API directly here
-    // then let onCreate do its refresh dance
     try {
-      const wsResult = await apiCall("create_workspace", [], {
-        wsname: trimmedName,
-        wsdescription: description.trim(),
-      });
+      const ws = await createWorkspace(trimmedName, description.trim());
 
-      if (wsResult?.error) {
-        setError(wsResult.error);
-        setLoading(false);
+      if (!ws?.wsid) {
+        setError("Failed to create workspace.");
         return;
       }
 
-      const wsid = wsResult.wsid;
+      // Invite any listed usernames
+      const usernames = userInput
+        .split(",")
+        .map((u) => u.trim())
+        .filter((u) => u.length > 0);
 
-      // 2. For each username, look up their uid then send a workspace invite
       const failed = [];
       for (const username of usernames) {
-        const users = await apiCall("search_users", [], { query: username });
-        // search_users does ILIKE so find an exact username match
-        const match = users?.find(
-          (u) => u.username.toLowerCase() === username.toLowerCase()
-        );
-        if (match) {
-          await apiCall("invite_to_workspace", [], {
-            wsid,
-            invitee_uid: match.uid,
-          });
-        } else {
+        try {
+          const users = await searchUsers(username);
+          const match = users?.find(
+            (u) => u.username.toLowerCase() === username.toLowerCase()
+          );
+          if (match) {
+            await inviteToWorkspace(ws.wsid, match.uid);
+          } else {
+            failed.push(username);
+          }
+        } catch {
           failed.push(username);
         }
       }
 
       if (failed.length > 0) {
         setError(`Workspace created! Could not find: ${failed.join(", ")}`);
-        onCreate(); // refresh the list
+        onCreate();
         setTimeout(onClose, 2500);
       } else {
-        onCreate(); // refresh the list
+        onCreate();
         onClose();
       }
     } catch (e) {
-      setError("Something went wrong. Please try again.");
+      setError(e.message || "Something went wrong.");
     } finally {
       setLoading(false);
     }
@@ -98,9 +88,7 @@ function CreateWorkspaceModal({ onClose, onCreate }) {
         e.g. bobsmith, carolwang — they'll receive an inbox invite
       </p>
 
-      {error && (
-        <p className="text-sm text-red-500 mb-3">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
 
       <div className="flex justify-end gap-2">
         <button
@@ -110,7 +98,6 @@ function CreateWorkspaceModal({ onClose, onCreate }) {
         >
           Cancel
         </button>
-
         <button
           onClick={handleCreate}
           className="px-3 py-1 bg-[#240057] text-white rounded disabled:opacity-50"

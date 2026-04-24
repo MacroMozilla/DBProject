@@ -473,3 +473,141 @@ def api_functions(request):
         sig = inspect.signature(fn)
         out[name] = [p for p in sig.parameters if p != "request"]
     return JsonResponse(out)
+
+
+# ── new functions added for project part 2 ──────────────────────
+
+@rpc
+def delete_channel(request, chid):
+    uid = request.session.get("uid")
+    if not uid:
+        return {"error": "not logged in"}
+    with connection.cursor() as c:
+        c.execute(
+            "SELECT role FROM channel_members WHERE chid=%s AND uid=%s AND status='accepted'",
+            [chid, uid],
+        )
+        row = _dictfetchone(c)
+        if not row or row["role"] != "creator":
+            return {"error": "only the channel creator can delete this channel"}
+        c.execute("DELETE FROM messages WHERE chid=%s", [chid])
+        c.execute("DELETE FROM channel_members WHERE chid=%s", [chid])
+        c.execute("DELETE FROM channels WHERE chid=%s", [chid])
+    return {"ok": True}
+
+
+@rpc
+def join_channel(request, chid):
+    """Self-join a public channel."""
+    uid = request.session.get("uid")
+    if not uid:
+        return {"error": "not logged in"}
+    with connection.cursor() as c:
+        c.execute("SELECT chtype FROM channels WHERE chid=%s", [chid])
+        row = _dictfetchone(c)
+        if not row:
+            return {"error": "channel not found"}
+        if row["chtype"] != "public":
+            return {"error": "can only self-join public channels"}
+        c.execute(
+            "INSERT INTO channel_members (chid, uid, role, status) "
+            "VALUES (%s, %s, 'member', 'accepted') "
+            "ON CONFLICT (chid, uid) DO UPDATE SET status='accepted'",
+            [chid, uid],
+        )
+    return {"ok": True}
+
+
+@rpc
+def leave_channel(request, chid):
+    uid = request.session.get("uid")
+    if not uid:
+        return {"error": "not logged in"}
+    with connection.cursor() as c:
+        c.execute(
+            "DELETE FROM channel_members WHERE chid=%s AND uid=%s",
+            [chid, uid],
+        )
+    return {"ok": True}
+
+
+@rpc
+def leave_workspace(request, wsid):
+    uid = request.session.get("uid")
+    if not uid:
+        return {"error": "not logged in"}
+    with connection.cursor() as c:
+        c.execute(
+            "SELECT role FROM workspace_members WHERE wsid=%s AND uid=%s",
+            [wsid, uid],
+        )
+        row = _dictfetchone(c)
+        if row and row["role"] == "creator":
+            return {"error": "workspace creator cannot leave — delete the workspace instead"}
+        c.execute(
+            "DELETE FROM workspace_members WHERE wsid=%s AND uid=%s",
+            [wsid, uid],
+        )
+    return {"ok": True}
+
+
+@rpc
+def get_public_channels(request, wsid):
+    """Return public channels in a workspace the current user has NOT yet joined."""
+    uid = request.session.get("uid")
+    if not uid:
+        return {"error": "not logged in"}
+    with connection.cursor() as c:
+        c.execute(
+            """
+            SELECT c.chid, c.chname, c.chtype,
+                   COUNT(cm2.uid) AS member_count
+            FROM channels c
+            LEFT JOIN channel_members cm2
+                   ON c.chid = cm2.chid AND cm2.status = 'accepted'
+            WHERE c.wsid = %s
+              AND c.chtype = 'public'
+              AND c.chid NOT IN (
+                  SELECT chid FROM channel_members
+                  WHERE uid = %s AND status = 'accepted'
+              )
+            GROUP BY c.chid, c.chname, c.chtype
+            ORDER BY c.chname
+            """,
+            [wsid, uid],
+        )
+        return _dictfetchall(c)
+
+
+@rpc
+def get_channel_members(request, chid):
+    with connection.cursor() as c:
+        c.execute(
+            "SELECT u.uid, u.username, u.nickname, cm.role, cm.status "
+            "FROM channel_members cm JOIN users u ON cm.uid = u.uid "
+            "WHERE cm.chid = %s ORDER BY cm.role, u.username",
+            [chid],
+        )
+        return _dictfetchall(c)
+
+
+@rpc
+def delete_workspace(request, wsid):
+    uid = request.session.get("uid")
+    if not uid:
+        return {"error": "not logged in"}
+    with connection.cursor() as c:
+        c.execute(
+            "SELECT role FROM workspace_members WHERE wsid=%s AND uid=%s",
+            [wsid, uid],
+        )
+        row = _dictfetchone(c)
+        if not row or row["role"] != "creator":
+            return {"error": "only the workspace creator can delete it"}
+        # Cascade: messages → channel_members → channels → workspace_members → workspace
+        c.execute("DELETE FROM messages WHERE chid IN (SELECT chid FROM channels WHERE wsid=%s)", [wsid])
+        c.execute("DELETE FROM channel_members WHERE chid IN (SELECT chid FROM channels WHERE wsid=%s)", [wsid])
+        c.execute("DELETE FROM channels WHERE wsid=%s", [wsid])
+        c.execute("DELETE FROM workspace_members WHERE wsid=%s", [wsid])
+        c.execute("DELETE FROM workspaces WHERE wsid=%s", [wsid])
+    return {"ok": True}

@@ -12,14 +12,10 @@ function CreateChannelModal({ wsid, onClose, onCreate }) {
 
   useEffect(() => {
     if (wsid) {
-      fetchWorkspaceMembers(wsid).then((data) => {
-        // Filter out the current user — they're added automatically as creator
-        setMembers(data || []);
-      });
+      fetchWorkspaceMembers(wsid).then((data) => setMembers(data || []));
     }
   }, [wsid]);
 
-  // When switching to "direct", enforce single selection
   const handleTypeChange = (newType) => {
     setType(newType);
     setSelected([]);
@@ -28,13 +24,10 @@ function CreateChannelModal({ wsid, onClose, onCreate }) {
 
   const toggleUser = (uid) => {
     if (type === "direct") {
-      // Direct = exactly one other person
       setSelected((prev) => (prev.includes(uid) ? [] : [uid]));
     } else {
       setSelected((prev) =>
-        prev.includes(uid)
-          ? prev.filter((id) => id !== uid)
-          : [...prev, uid]
+        prev.includes(uid) ? prev.filter((id) => id !== uid) : [...prev, uid]
       );
     }
   };
@@ -42,23 +35,23 @@ function CreateChannelModal({ wsid, onClose, onCreate }) {
   const handleSubmit = async () => {
     setError("");
 
-    // Validation
     if (type !== "direct" && !name.trim()) {
       setError("Channel name is required.");
       return;
     }
     if (type === "direct" && selected.length !== 1) {
-      setError("Direct channels require exactly one other user.");
+      setError("Select exactly one user for a direct message.");
       return;
     }
 
     setLoading(true);
     try {
-      // For direct channels, auto-generate the name from the selected user
-      const channelName =
-        type === "direct"
-          ? `DM-${selected[0]}` // backend can store any string; display name comes from members
-          : name.trim();
+      // For DMs, autopopulate the channel name as "DM - username"
+      let channelName = name.trim();
+      if (type === "direct") {
+        const otherUser = members.find((m) => m.uid === selected[0]);
+        channelName = `DM - ${otherUser?.username || selected[0]}`;
+      }
 
       const channel = await onCreate(channelName, type);
 
@@ -68,7 +61,7 @@ function CreateChannelModal({ wsid, onClose, onCreate }) {
         return;
       }
 
-      // Invite selected users (private + direct)
+      // Invite selected users for private + direct
       if (type !== "public") {
         for (const uid of selected) {
           await inviteToChannel(channel.chid, uid);
@@ -91,8 +84,6 @@ function CreateChannelModal({ wsid, onClose, onCreate }) {
 
   return (
     <Modal title="Create Channel" onClose={onClose}>
-
-      {/* Channel name — hidden for direct */}
       {type !== "direct" && (
         <input
           placeholder="Channel name"
@@ -102,7 +93,6 @@ function CreateChannelModal({ wsid, onClose, onCreate }) {
         />
       )}
 
-      {/* Type selector */}
       <select
         value={type}
         onChange={(e) => handleTypeChange(e.target.value)}
@@ -114,11 +104,10 @@ function CreateChannelModal({ wsid, onClose, onCreate }) {
       </select>
       <p className="text-xs text-gray-400 mb-3">{typeDescriptions[type]}</p>
 
-      {/* User picker — shown for private + direct */}
       {type !== "public" && (
         <div className="mb-4">
           <div className="text-sm font-semibold mb-2">
-            {type === "direct" ? "Select a user" : "Invite members"}
+            {type === "direct" ? "Select a user" : "Invite members (optional)"}
           </div>
           <div className="max-h-40 overflow-y-auto border rounded p-2">
             {members.length === 0 && (
@@ -132,28 +121,19 @@ function CreateChannelModal({ wsid, onClose, onCreate }) {
                   onChange={() => toggleUser(m.uid)}
                 />
                 <span>{m.username}</span>
-                {m.nickname && (
-                  <span className="text-gray-400 text-xs">({m.nickname})</span>
-                )}
+                {m.nickname && <span className="text-gray-400 text-xs">({m.nickname})</span>}
               </label>
             ))}
           </div>
         </div>
       )}
 
-      {error && (
-        <p className="text-sm text-red-500 mb-3">{error}</p>
-      )}
+      {error && <p className="text-sm text-red-500 mb-3">{error}</p>}
 
       <div className="flex justify-end gap-2">
-        <button
-          onClick={onClose}
-          className="px-3 py-1 bg-gray-200 rounded"
-          disabled={loading}
-        >
+        <button onClick={onClose} className="px-3 py-1 bg-gray-200 rounded" disabled={loading}>
           Cancel
         </button>
-
         <button
           onClick={handleSubmit}
           className="px-3 py-1 bg-[#240057] text-white rounded disabled:opacity-50"

@@ -6,6 +6,9 @@ import ChatWindow from "../components/ChatWindow";
 
 import CreateWorkspaceModal from "../components/CreateWorkspaceModal";
 import CreateChannelModal from "../components/CreateChannelModal";
+import WorkspaceMembersModal from "../components/WorkspaceMembersModal";
+import ChannelSettingsModal from "../components/ChannelSettingsModal";
+import DiscoverChannelsModal from "../components/DiscoverChannelsModal";
 
 import {
   fetchWorkspaces,
@@ -30,6 +33,9 @@ function ChatPage({ user, setUser }) {
 
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [showWsMembers, setShowWsMembers] = useState(false);
+  const [showChannelSettings, setShowChannelSettings] = useState(false);
+  const [showDiscover, setShowDiscover] = useState(false);
 
   const [wsid, setWsid] = useState(null);
   const [chid, setChid] = useState(null);
@@ -47,10 +53,8 @@ function ChatPage({ user, setUser }) {
   // =========================
   useEffect(() => {
     if (!wsid) return;
-    setChid(null); // clear selected channel when switching workspaces
-    fetchChannels(wsid).then((data) => {
-      setChannels(data);
-    });
+    setChid(null);
+    fetchChannels(wsid).then(setChannels);
   }, [wsid]);
 
   // =========================
@@ -91,25 +95,33 @@ function ChatPage({ user, setUser }) {
     fetchInvites().then(setInvites);
   };
 
-  const handleCreateWorkspace = async () => {
-    // Creation + invites are handled inside CreateWorkspaceModal.
-    // This callback just refreshes the workspace list.
+  const handleWorkspaceCreated = async () => {
     setShowCreateWorkspace(false);
-    const updated = await fetchWorkspaces();
-    setWorkspaces(updated);
+    fetchWorkspaces().then(setWorkspaces);
   };
 
   const handleCreateChannel = async (name, type) => {
     const channel = await createChannel(wsid, name, type);
-    // Refetch channels and auto-select the new one
     const updated = await fetchChannels(wsid);
     setChannels(updated);
     if (channel?.chid) setChid(channel.chid);
     return channel;
   };
 
-  const currentChannelName =
-    channels.find((c) => c.chid === chid)?.chname || "";
+  const handleLeftWorkspace = async () => {
+    setWsid(null);
+    setChid(null);
+    setChannels([]);
+    fetchWorkspaces().then(setWorkspaces);
+  };
+
+  const handleChannelGone = async () => {
+    setChid(null);
+    setMessages([]);
+    fetchChannels(wsid).then(setChannels);
+  };
+
+  const currentChannelName = channels.find((c) => c.chid === chid)?.chname || "";
 
   // =========================
   // UI
@@ -124,7 +136,6 @@ function ChatPage({ user, setUser }) {
         <div className="flex items-center gap-4 relative">
           <span className="text-sm">{user.username}</span>
 
-          {/* INBOX */}
           <div className="relative">
             <button
               onClick={(e) => {
@@ -135,22 +146,13 @@ function ChatPage({ user, setUser }) {
             >
               Inbox ({invites.length})
             </button>
-
             {showInbox && (
-              <Inbox
-                invites={invites}
-                onAccept={handleAccept}
-                onReject={handleReject}
-              />
+              <Inbox invites={invites} onAccept={handleAccept} onReject={handleReject} />
             )}
           </div>
 
-          {/* LOGOUT */}
           <button
-            onClick={async () => {
-              await logout();
-              window.location.reload();
-            }}
+            onClick={async () => { await logout(); window.location.reload(); }}
             className="bg-red-500 px-3 py-1 rounded hover:bg-red-600"
           >
             Logout
@@ -161,27 +163,66 @@ function ChatPage({ user, setUser }) {
       {/* MAIN LAYOUT */}
       <div className="flex flex-1 overflow-hidden">
 
-        {/* WORKSPACES */}
-        <div className="w-48 bg-[#240057] text-white p-4 overflow-y-auto">
-          <WorkspaceList
-            workspaces={workspaces}
-            wsid={wsid}
-            setWsid={setWsid}
-            onCreateWorkspace={() => setShowCreateWorkspace(true)}
-          />
+        {/* WORKSPACES SIDEBAR */}
+        <div className="w-48 bg-[#240057] text-white flex flex-col overflow-hidden">
+          {/* WorkspaceList renders its own header + list */}
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2">
+            <WorkspaceList
+              workspaces={workspaces}
+              wsid={wsid}
+              setWsid={setWsid}
+              onCreateWorkspace={() => setShowCreateWorkspace(true)}
+            />
+          </div>
+
+          {/* Workspace actions — only when one is selected */}
+          {wsid && (
+            <div className="border-t border-white/10 px-4 py-2">
+              <button
+                onClick={() => setShowWsMembers(true)}
+                className="w-full text-left text-xs text-white/60 hover:text-white py-1"
+              >
+                👥 Members &amp; settings
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* CHANNELS */}
-        <div className="w-56 bg-gray-200 p-4 overflow-y-auto border-r">
-          <ChannelList
-            channels={channels}
-            chid={chid}
-            setChid={setChid}
-            onCreateChannel={() => setShowCreateChannel(true)}
-          />
+        {/* CHANNELS SIDEBAR */}
+        <div className="w-56 bg-gray-200 flex flex-col overflow-hidden border-r">
+          {/* ChannelList renders its own header + list */}
+          <div className="flex-1 overflow-y-auto px-4 pt-4 pb-2">
+            <ChannelList
+              channels={channels}
+              chid={chid}
+              setChid={setChid}
+              onCreateChannel={() => setShowCreateChannel(true)}
+            />
+            {/* Discover sits below the list, inside the same scroll area */}
+            {wsid && (
+              <button
+                onClick={() => setShowDiscover(true)}
+                className="mt-2 text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1"
+              >
+                🔍 Browse public channels
+              </button>
+            )}
+          </div>
+
+          {/* Channel actions — only when one is selected */}
+          {chid && (
+            <div className="border-t border-gray-300 px-4 py-2">
+              <button
+                onClick={() => setShowChannelSettings(true)}
+                className="w-full text-left text-xs text-gray-500 hover:text-gray-800 py-1"
+              >
+                ⚙️ Channel settings
+              </button>
+            </div>
+          )}
         </div>
 
-        {/* CHAT */}
+        {/* CHAT AREA */}
         <div className="flex-1 flex flex-col bg-white">
           <ChatWindow
             messages={messages}
@@ -199,15 +240,44 @@ function ChatPage({ user, setUser }) {
       {showCreateWorkspace && (
         <CreateWorkspaceModal
           onClose={() => setShowCreateWorkspace(false)}
-          onCreate={handleCreateWorkspace}
+          onCreate={handleWorkspaceCreated}
         />
       )}
 
       {showCreateChannel && wsid && (
         <CreateChannelModal
-          wsid={wsid}                              // ← was missing before
+          wsid={wsid}
           onClose={() => setShowCreateChannel(false)}
           onCreate={handleCreateChannel}
+        />
+      )}
+
+      {showWsMembers && wsid && (
+        <WorkspaceMembersModal
+          wsid={wsid}
+          currentUser={user}
+          onClose={() => setShowWsMembers(false)}
+          onLeft={handleLeftWorkspace}
+          onDeleted={handleLeftWorkspace}
+        />
+      )}
+
+      {showChannelSettings && chid && (
+        <ChannelSettingsModal
+          chid={chid}
+          wsid={wsid}
+          currentUser={user}
+          onClose={() => setShowChannelSettings(false)}
+          onDeleted={handleChannelGone}
+          onLeft={handleChannelGone}
+        />
+      )}
+
+      {showDiscover && wsid && (
+        <DiscoverChannelsModal
+          wsid={wsid}
+          onClose={() => setShowDiscover(false)}
+          onJoined={() => fetchChannels(wsid).then(setChannels)}
         />
       )}
     </div>
