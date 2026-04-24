@@ -7,7 +7,7 @@ import json, hashlib, inspect, os
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from django.views.decorators.http import require_GET
-from django.db import connection
+from django.db import connection, transaction
 from django.shortcuts import render
 
 
@@ -112,17 +112,18 @@ def create_workspace(request, wsname, wsdescription=""):
     uid = request.session.get("uid")
     if not uid:
         return {"error": "not logged in"}
-    with connection.cursor() as c:
-        c.execute(
-            "INSERT INTO workspaces (wsname, wsdescription) VALUES (%s, %s) RETURNING wsid",
-            [wsname, wsdescription],
-        )
-        wsid = _dictfetchone(c)["wsid"]
-        c.execute(
-            "INSERT INTO workspace_members (wsid, uid, role, status) "
-            "VALUES (%s, %s, 'creator', 'accepted')",
-            [wsid, uid],
-        )
+    with transaction.atomic():
+        with connection.cursor() as c:
+            c.execute(
+                "INSERT INTO workspaces (wsname, wsdescription) VALUES (%s, %s) RETURNING wsid",
+                [wsname, wsdescription],
+            )
+            wsid = _dictfetchone(c)["wsid"]
+            c.execute(
+                "INSERT INTO workspace_members (wsid, uid, role, status) "
+                "VALUES (%s, %s, 'creator', 'accepted')",
+                [wsid, uid],
+            )
     return {"wsid": wsid, "wsname": wsname}
 
 
@@ -143,21 +144,22 @@ def invite_to_workspace(request, wsid, invitee_uid):
     uid = request.session.get("uid")
     if not uid:
         return {"error": "not logged in"}
-    with connection.cursor() as c:
-        c.execute(
-            "SELECT role FROM workspace_members "
-            "WHERE wsid=%s AND uid=%s AND status='accepted'",
-            [wsid, uid],
-        )
-        role = _dictfetchone(c)
-        if not role or role["role"] not in ("creator", "admin"):
-            return {"error": "not authorized"}
-        c.execute(
-            "INSERT INTO workspace_members (wsid, uid, role, status) "
-            "VALUES (%s, %s, 'member', 'pending') "
-            "ON CONFLICT (wsid, uid) DO NOTHING",
-            [wsid, invitee_uid],
-        )
+    with transaction.atomic():
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT role FROM workspace_members "
+                "WHERE wsid=%s AND uid=%s AND status='accepted'",
+                [wsid, uid],
+            )
+            role = _dictfetchone(c)
+            if not role or role["role"] not in ("creator", "admin"):
+                return {"error": "not authorized"}
+            c.execute(
+                "INSERT INTO workspace_members (wsid, uid, role, status) "
+                "VALUES (%s, %s, 'member', 'pending') "
+                "ON CONFLICT (wsid, uid) DO NOTHING",
+                [wsid, invitee_uid],
+            )
     return {"ok": True}
 
 
@@ -181,26 +183,27 @@ def update_workspace_member(request, wsid, target_uid, role=None, remove=False):
     uid = request.session.get("uid")
     if not uid:
         return {"error": "not logged in"}
-    with connection.cursor() as c:
-        c.execute(
-            "SELECT role FROM workspace_members "
-            "WHERE wsid=%s AND uid=%s AND status='accepted'",
-            [wsid, uid],
-        )
-        my_role = _dictfetchone(c)
-        if not my_role or my_role["role"] not in ("creator", "admin"):
-            return {"error": "not authorized"}
-        if remove:
+    with transaction.atomic():
+        with connection.cursor() as c:
             c.execute(
-                "DELETE FROM workspace_members WHERE wsid=%s AND uid=%s",
-                [wsid, target_uid],
+                "SELECT role FROM workspace_members "
+                "WHERE wsid=%s AND uid=%s AND status='accepted'",
+                [wsid, uid],
             )
-        elif role:
-            c.execute(
-                "UPDATE workspace_members SET role=%s, updatedat=CURRENT_TIMESTAMP "
-                "WHERE wsid=%s AND uid=%s",
-                [role, wsid, target_uid],
-            )
+            my_role = _dictfetchone(c)
+            if not my_role or my_role["role"] not in ("creator", "admin"):
+                return {"error": "not authorized"}
+            if remove:
+                c.execute(
+                    "DELETE FROM workspace_members WHERE wsid=%s AND uid=%s",
+                    [wsid, target_uid],
+                )
+            elif role:
+                c.execute(
+                    "UPDATE workspace_members SET role=%s, updatedat=CURRENT_TIMESTAMP "
+                    "WHERE wsid=%s AND uid=%s",
+                    [role, wsid, target_uid],
+                )
     return {"ok": True}
 
 
@@ -229,24 +232,25 @@ def create_channel(request, wsid, chname, chtype="public"):
     uid = request.session.get("uid")
     if not uid:
         return {"error": "not logged in"}
-    with connection.cursor() as c:
-        c.execute(
-            "SELECT 1 FROM workspace_members "
-            "WHERE wsid=%s AND uid=%s AND status='accepted'",
-            [wsid, uid],
-        )
-        if not c.fetchone():
-            return {"error": "not a member of this workspace"}
-        c.execute(
-            "INSERT INTO channels (wsid, chname, chtype) VALUES (%s, %s, %s) RETURNING chid",
-            [wsid, chname, chtype],
-        )
-        chid = _dictfetchone(c)["chid"]
-        c.execute(
-            "INSERT INTO channel_members (chid, uid, role, status) "
-            "VALUES (%s, %s, 'creator', 'accepted')",
-            [chid, uid],
-        )
+    with transaction.atomic():
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT 1 FROM workspace_members "
+                "WHERE wsid=%s AND uid=%s AND status='accepted'",
+                [wsid, uid],
+            )
+            if not c.fetchone():
+                return {"error": "not a member of this workspace"}
+            c.execute(
+                "INSERT INTO channels (wsid, chname, chtype) VALUES (%s, %s, %s) RETURNING chid",
+                [wsid, chname, chtype],
+            )
+            chid = _dictfetchone(c)["chid"]
+            c.execute(
+                "INSERT INTO channel_members (chid, uid, role, status) "
+                "VALUES (%s, %s, 'creator', 'accepted')",
+                [chid, uid],
+            )
     return {"chid": chid, "chname": chname, "chtype": chtype}
 
 
@@ -421,11 +425,12 @@ def get_pending_channel_invites(request, wsid):
 @rpc
 def initialize(request):
     sql_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "sqls")
-    with connection.cursor() as c:
-        with open(os.path.join(sql_dir, "initialize.sql")) as f:
-            c.execute(f.read())
-        with open(os.path.join(sql_dir, "insert.sql")) as f:
-            c.execute(f.read())
+    with transaction.atomic():
+        with connection.cursor() as c:
+            with open(os.path.join(sql_dir, "initialize.sql")) as f:
+                c.execute(f.read())
+            with open(os.path.join(sql_dir, "insert.sql")) as f:
+                c.execute(f.read())
     request.session.flush()
     return {"ok": True, "message": "Database reset with test data"}
 
@@ -482,17 +487,18 @@ def delete_channel(request, chid):
     uid = request.session.get("uid")
     if not uid:
         return {"error": "not logged in"}
-    with connection.cursor() as c:
-        c.execute(
-            "SELECT role FROM channel_members WHERE chid=%s AND uid=%s AND status='accepted'",
-            [chid, uid],
-        )
-        row = _dictfetchone(c)
-        if not row or row["role"] != "creator":
-            return {"error": "only the channel creator can delete this channel"}
-        c.execute("DELETE FROM messages WHERE chid=%s", [chid])
-        c.execute("DELETE FROM channel_members WHERE chid=%s", [chid])
-        c.execute("DELETE FROM channels WHERE chid=%s", [chid])
+    with transaction.atomic():
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT role FROM channel_members WHERE chid=%s AND uid=%s AND status='accepted'",
+                [chid, uid],
+            )
+            row = _dictfetchone(c)
+            if not row or row["role"] != "creator":
+                return {"error": "only the channel creator can delete this channel"}
+            c.execute("DELETE FROM messages WHERE chid=%s", [chid])
+            c.execute("DELETE FROM channel_members WHERE chid=%s", [chid])
+            c.execute("DELETE FROM channels WHERE chid=%s", [chid])
     return {"ok": True}
 
 
@@ -596,18 +602,19 @@ def delete_workspace(request, wsid):
     uid = request.session.get("uid")
     if not uid:
         return {"error": "not logged in"}
-    with connection.cursor() as c:
-        c.execute(
-            "SELECT role FROM workspace_members WHERE wsid=%s AND uid=%s",
-            [wsid, uid],
-        )
-        row = _dictfetchone(c)
-        if not row or row["role"] != "creator":
-            return {"error": "only the workspace creator can delete it"}
-        # Cascade: messages → channel_members → channels → workspace_members → workspace
-        c.execute("DELETE FROM messages WHERE chid IN (SELECT chid FROM channels WHERE wsid=%s)", [wsid])
-        c.execute("DELETE FROM channel_members WHERE chid IN (SELECT chid FROM channels WHERE wsid=%s)", [wsid])
-        c.execute("DELETE FROM channels WHERE wsid=%s", [wsid])
-        c.execute("DELETE FROM workspace_members WHERE wsid=%s", [wsid])
-        c.execute("DELETE FROM workspaces WHERE wsid=%s", [wsid])
+    with transaction.atomic():
+        with connection.cursor() as c:
+            c.execute(
+                "SELECT role FROM workspace_members WHERE wsid=%s AND uid=%s",
+                [wsid, uid],
+            )
+            row = _dictfetchone(c)
+            if not row or row["role"] != "creator":
+                return {"error": "only the workspace creator can delete it"}
+            # Cascade: messages → channel_members → channels → workspace_members → workspace
+            c.execute("DELETE FROM messages WHERE chid IN (SELECT chid FROM channels WHERE wsid=%s)", [wsid])
+            c.execute("DELETE FROM channel_members WHERE chid IN (SELECT chid FROM channels WHERE wsid=%s)", [wsid])
+            c.execute("DELETE FROM channels WHERE wsid=%s", [wsid])
+            c.execute("DELETE FROM workspace_members WHERE wsid=%s", [wsid])
+            c.execute("DELETE FROM workspaces WHERE wsid=%s", [wsid])
     return {"ok": True}

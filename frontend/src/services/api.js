@@ -110,6 +110,9 @@ export const fetchMessages = (chid) =>
 export const sendMessage = (chid, content) =>
   apiCall("send_message", [chid, content]);
 
+export const searchMessages = (keyword) =>
+  apiCall("search_messages", [keyword]);
+
 
 
 // ================= INVITES =================

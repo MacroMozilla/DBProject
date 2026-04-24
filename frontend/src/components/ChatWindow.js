@@ -28,8 +28,9 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
                 className={`max-w-xs px-4 py-2 rounded-2xl shadow
                   ${isMe ? "bg-[#240057] text-white" : "bg-gray-200 text-black"}`}
               >
-                <div className="text-xs opacity-70 font-semibold mb-1">
-                  {msg.username}
+                <div className="flex justify-between items-center text-xs opacity-70 mb-1">
+                  <span className="font-semibold">{msg.username}</span>
+                  <span className="ml-2">{msg.postat?.replace("T", " ")}</span>
                 </div>
                 {msg.content}
               </div>
