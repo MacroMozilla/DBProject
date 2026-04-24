@@ -21,12 +21,11 @@ build/
 # Environment variables
 .env
 
-# Docs
-docs/*.pdf
+# Docs (LaTeX build artifacts only)
 docs/*.aux
 docs/*.log
 docs/*.out
-docs/*.png
+docs/*.toc
 
 # Database
 db.sqlite3

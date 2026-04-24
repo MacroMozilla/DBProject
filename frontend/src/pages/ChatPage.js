@@ -15,6 +15,7 @@ import {
   fetchWorkspaces,
   fetchChannels,
   fetchMessages,
+  fetchChannelMembers,
   fetchInvites,
   sendMessage,
   acceptInvite,
@@ -28,6 +29,7 @@ function ChatPage({ user, setUser }) {
   const [channels, setChannels] = useState([]);
   const [workspaces, setWorkspaces] = useState([]);
   const [invites, setInvites] = useState([]);
+  const [channelMembers, setChannelMembers] = useState([]);
 
   const [input, setInput] = useState("");
   const [showInbox, setShowInbox] = useState(false);
@@ -65,6 +67,7 @@ function ChatPage({ user, setUser }) {
   useEffect(() => {
     if (!chid) return;
     fetchMessages(chid).then(setMessages);
+    fetchChannelMembers(chid).then((data) => setChannelMembers(data || []));
   }, [chid]);
 
   // =========================
@@ -241,6 +244,7 @@ function ChatPage({ user, setUser }) {
             chid={chid}
             user={user}
             channelName={currentChannelName}
+            channelMembers={channelMembers}
           />
         </div>
       </div>

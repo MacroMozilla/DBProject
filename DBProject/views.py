@@ -6,7 +6,6 @@ POST /api/core  { "function": "xxx", "args": [], "kwargs": {} }
 import json, hashlib, inspect, os
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from django.views.decorators.http import require_GET
 from django.db import connection, transaction
 from django.shortcuts import render
 
@@ -444,6 +443,16 @@ def test_page(request):
         params = [p for p in sig.parameters if p != "request"]
         fn_list.append({"name": name, "params": params})
     return render(request, "simple/test.html", {"functions": fn_list})
+
+
+def react_app(request):
+    """Serve the React SPA index.html for all non-API routes."""
+    from django.conf import settings
+    from django.http import FileResponse
+    index = settings.REACT_BUILD_DIR / "index.html"
+    if index.exists():
+        return FileResponse(open(index, "rb"), content_type="text/html")
+    return render(request, "simple/test.html", {"functions": []})
 
 
 # ── the single RPC endpoint ────────────────────────────────────

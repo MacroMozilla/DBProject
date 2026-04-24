@@ -1,4 +1,7 @@
-const BASE_URL = "http://localhost:8000/api/core";
+// Use relative URL when served by Django, absolute when using dev server
+const BASE_URL = process.env.NODE_ENV === "production"
+  ? "/api/core"
+  : "http://localhost:8000/api/core";
 
 /**
  * Core RPC helper
