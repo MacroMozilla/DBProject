@@ -10,6 +10,7 @@ import WorkspaceMembersModal from "../components/WorkspaceMembersModal";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import DiscoverChannelsModal from "../components/DiscoverChannelsModal";
 import SearchModal from "../components/SearchModal";
+import SearchModal from "../components/SearchModal";
 
 import {
   fetchWorkspaces,
@@ -312,6 +313,10 @@ function ChatPage({ user, setUser }) {
           onClose={() => setShowDiscover(false)}
           onJoined={() => fetchChannels(wsid).then(setChannels)}
         />
+      )}
+
+      {showSearch && (
+        <SearchModal onClose={() => setShowSearch(false)} />
       )}
     </div>
   );
