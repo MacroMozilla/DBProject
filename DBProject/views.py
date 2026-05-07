@@ -216,7 +216,14 @@ def get_channels(request, wsid):
     with connection.cursor() as c:
         c.execute(
             """
-            SELECT c.chid, c.chname, c.chtype,
+            SELECT c.chid,
+                   CASE WHEN c.chtype = 'direct' THEN (
+                       SELECT u.username FROM channel_members cm2
+                       JOIN users u ON cm2.uid = u.uid
+                       WHERE cm2.chid = c.chid AND cm2.uid != %s
+                       LIMIT 1
+                   ) ELSE c.chname END AS chname,
+                   c.chtype,
                    COALESCE((
                        SELECT COUNT(*)
                        FROM messages m
@@ -229,7 +236,7 @@ def get_channels(request, wsid):
               AND cm.status = 'accepted'
             ORDER BY c.chtype, c.chname
             """,
-            [uid, wsid],
+            [uid, uid, wsid],
         )
         return _dictfetchall(c)
 

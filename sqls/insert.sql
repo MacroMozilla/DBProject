@@ -328,3 +328,276 @@ INSERT INTO messages (chid, uid, content, postat) VALUES
 (11, 3, 'I have the outline done. Need to add the ER diagram and query explanations.', '2026-04-12 22:35:00'),
 (11, 7, 'I can write the normalization analysis section. 3NF and BCNF proofs.', '2026-04-12 22:40:00'),
 (11, 3, 'Perfect. Let us aim to have a full draft by this weekend.',   '2026-04-12 22:45:00');
+
+-- ============================================================
+-- Additional Channels
+-- ============================================================
+-- WS1: additional channels
+INSERT INTO channels (wsid, chname, chtype) VALUES
+(1, 'announcements',   'public'),   -- chid 12
+(1, 'ta-coordination', 'private');  -- chid 13
+
+-- WS2: additional channel
+INSERT INTO channels (wsid, chname, chtype) VALUES
+(2, 'software', 'public');          -- chid 14
+
+-- WS3: additional channels
+INSERT INTO channels (wsid, chname, chtype) VALUES
+(3, 'frontend', 'public'),          -- chid 15
+(3, 'queries',  'public');          -- chid 16
+
+-- ============================================================
+-- Additional Channel Members
+-- ============================================================
+-- WS1: #announcements (chid 12)
+INSERT INTO channel_members (chid, uid, role, status) VALUES
+(12, 1, 'creator', 'accepted'),
+(12, 2, 'member',  'accepted'),
+(12, 3, 'member',  'accepted'),
+(12, 7, 'member',  'accepted');
+
+-- WS1: #ta-coordination (chid 13)
+INSERT INTO channel_members (chid, uid, role, status) VALUES
+(13, 1, 'creator', 'accepted'),
+(13, 2, 'member',  'accepted'),
+(13, 7, 'member',  'accepted');
+
+-- WS2: #software (chid 14)
+INSERT INTO channel_members (chid, uid, role, status) VALUES
+(14, 2, 'creator', 'accepted'),
+(14, 3, 'member',  'accepted'),
+(14, 4, 'member',  'accepted'),
+(14, 8, 'member',  'accepted');
+
+-- WS3: #frontend (chid 15)
+INSERT INTO channel_members (chid, uid, role, status) VALUES
+(15, 3, 'creator', 'accepted'),
+(15, 8, 'member',  'accepted'),
+(15, 1, 'member',  'accepted');
+
+-- WS3: #queries (chid 16)
+INSERT INTO channel_members (chid, uid, role, status) VALUES
+(16, 3, 'creator', 'accepted'),
+(16, 7, 'member',  'accepted'),
+(16, 8, 'member',  'accepted'),
+(16, 1, 'member',  'accepted');
+
+-- ============================================================
+-- Additional Messages -- late April / May 2026
+-- ============================================================
+
+-- WS1: #general continued
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(1, 1, 'End of semester reminders: grade submissions due May 16. Please log in to Albert early.', '2026-04-20 09:00:00'),
+(1, 2, 'Quick reminder that the department colloquium is this Friday at 3pm. Dr. Lin from CMU is presenting on federated learning.', '2026-04-20 09:30:00'),
+(1, 3, 'Is the talk in person or hybrid?', '2026-04-20 09:35:00'),
+(1, 1, 'Hybrid. Zoom link is on the department calendar.', '2026-04-20 09:40:00'),
+(1, 7, 'The abstract looks great. Her work on privacy-preserving ML is really relevant right now.', '2026-04-20 10:00:00'),
+(1, 2, 'Also - anyone else having issues with the new Albert grade submission portal? It keeps timing out.', '2026-04-21 08:45:00'),
+(1, 3, 'Yes! I submitted twice by accident. IT said it is a known bug and they are working on it.', '2026-04-21 09:00:00'),
+(1, 1, 'Thanks for the heads up. I will send an email to the department.', '2026-04-21 09:10:00'),
+(1, 7, 'Reminder that the CS award nominations close April 30. Please nominate deserving students.', '2026-04-28 11:00:00'),
+(1, 2, 'Nominated three students from my algorithms class. Incredible work this semester.', '2026-04-28 11:30:00'),
+(1, 1, 'Faculty meeting notes from Monday are in the shared drive under Admin/Meetings.', '2026-05-01 10:00:00'),
+(1, 3, 'Thanks Alice. Did they finalize the new course rotations for fall?', '2026-05-01 10:15:00'),
+(1, 1, 'Yes. DB systems will run both semesters next year. High demand after the snickr project got attention.', '2026-05-01 10:20:00'),
+(1, 7, 'Ha, we made an impact already!', '2026-05-01 10:25:00'),
+(1, 2, 'Does anyone have office hours coverage for next week? I will be at ICDE.', '2026-05-05 14:00:00'),
+(1, 7, 'I can cover Monday and Wednesday.', '2026-05-05 14:10:00'),
+(1, 3, 'I have Tuesday and Thursday.', '2026-05-05 14:15:00'),
+(1, 2, 'Perfect, thank you both!', '2026-05-05 14:20:00');
+
+-- WS1: #hiring-committee continued
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(2, 1, 'Campus visit schedule is confirmed for the week of May 12. We have 5 candidates coming in.', '2026-04-25 10:00:00'),
+(2, 2, 'I will coordinate the faculty lunch slots. Each candidate gets a 30-minute slot with the committee.', '2026-04-25 10:15:00'),
+(2, 1, 'The Stanford ML candidate confirmed. She is flying in from San Francisco on May 13.', '2026-04-25 10:30:00'),
+(2, 2, 'Should we set up a research talk for her? Her recent NeurIPS paper would be a great fit.', '2026-04-25 10:45:00'),
+(2, 1, 'Yes, book WWH 317 for a 45-minute talk at 2pm. I will send the invite to the full department.', '2026-04-25 11:00:00'),
+(2, 2, 'Done. Also the two systems candidates both have strong industry connections. Google and Meta respectively.', '2026-04-28 09:00:00'),
+(2, 1, 'Good. The dean mentioned industry connections are a big plus for grant funding.', '2026-04-28 09:20:00'),
+(2, 2, 'Post-visit debrief meeting scheduled for May 16 at 4pm. Please block your calendar.', '2026-05-05 15:00:00');
+
+-- WS1: DM Alice-Bob continued
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(3, 1, 'Bob, how did the seminar go?', '2026-04-07 10:00:00'),
+(3, 2, 'It was great! Dr. Patel got a lot of good questions. The AV setup worked perfectly.', '2026-04-07 10:05:00'),
+(3, 1, 'Wonderful. The food was a hit too - several people mentioned the veggie platter.', '2026-04-07 10:08:00'),
+(3, 2, 'Ha! Good call on the sandwiches. I will remember that for next time.', '2026-04-07 10:10:00'),
+(3, 1, 'One more thing - can you be on the hiring committee interview panel on May 13?', '2026-04-28 14:00:00'),
+(3, 2, 'Yes, happy to help. What time?', '2026-04-28 14:05:00'),
+(3, 1, 'The ML candidate is at 2pm, systems candidates in the morning starting at 9am.', '2026-04-28 14:10:00'),
+(3, 2, 'I will block the whole day. Want me to prepare any evaluation rubrics?', '2026-04-28 14:15:00'),
+(3, 1, 'That would be very helpful. Focus on research vision and teaching fit.', '2026-04-28 14:20:00'),
+(3, 2, 'Will have a draft rubric to you by end of week.', '2026-04-28 14:25:00');
+
+-- WS1: #research continued
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(4, 7, 'Reading group summary from Wednesday is posted in the shared drive.', '2026-04-16 10:00:00'),
+(4, 1, 'Great summary Grace. The discussion on learned indexes was really productive.', '2026-04-16 10:30:00'),
+(4, 3, 'For next week I want to discuss the new paper on quantum database systems. Anyone read it?', '2026-04-16 11:00:00'),
+(4, 7, 'I skimmed it. The complexity results are interesting but I am skeptical about near-term applications.', '2026-04-16 11:15:00'),
+(4, 1, 'Still worth discussing. The theoretical bounds alone are worth 30 minutes.', '2026-04-16 11:20:00'),
+(4, 3, 'Draft of our pgvector paper outline is ready. Shared it in the drive under Research/2026-papers.', '2026-04-30 15:00:00'),
+(4, 1, 'Read it last night. The motivation section is strong. The experimental section needs more detail.', '2026-04-30 15:30:00'),
+(4, 7, 'Agreed. I will add the benchmark methodology subsection this weekend.', '2026-04-30 15:45:00'),
+(4, 3, 'Target venue: VLDB 2027. Deadline is March 1 so we have time to do this properly.', '2026-04-30 16:00:00'),
+(4, 1, 'Good call. I would rather submit once with a polished paper than rush.', '2026-04-30 16:10:00');
+
+-- WS1: #announcements
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(12, 1, 'Welcome to #announcements. This channel is for department-wide updates only.', '2026-04-01 08:00:00'),
+(12, 1, 'Reminder: final exam schedule is now posted on the registrar website. Please review your assigned rooms.', '2026-04-15 09:00:00'),
+(12, 1, 'The department picnic is scheduled for May 10, 12-3pm on the Gould Plaza lawn. Families welcome!', '2026-04-22 10:00:00'),
+(12, 2, 'Reminder that NSF grant proposals for summer funding are due April 30. See Maria in admin for the internal routing form.', '2026-04-25 09:00:00'),
+(12, 1, 'Congratulations to @gracesun whose paper was accepted to SIGMOD 2026!', '2026-04-29 11:00:00'),
+(12, 7, 'Thank you everyone! Really excited about this one.', '2026-04-29 11:15:00'),
+(12, 1, 'Campus is closed May 26 for Memorial Day. Please plan accordingly.', '2026-05-01 09:00:00'),
+(12, 2, 'Hiring committee: please submit your candidate evaluations by May 18.', '2026-05-06 10:00:00');
+
+-- WS1: #ta-coordination
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(13, 1, 'This channel is for coordinating TA assignments and grading logistics.', '2026-04-01 09:00:00'),
+(13, 2, 'DB course has three TAs this semester. Office hours schedule is in the shared doc.', '2026-04-01 09:10:00'),
+(13, 7, 'I will hold DB office hours Tuesdays 4-6pm in WWH 412.', '2026-04-01 09:20:00'),
+(13, 1, 'Perfect. Bob can you set up Gradescope for the final project submissions?', '2026-04-01 09:25:00'),
+(13, 2, 'Done. Students can submit through Gradescope starting April 28.', '2026-04-02 10:00:00'),
+(13, 7, 'Getting a lot of questions about the project requirements. Can we post a FAQ?', '2026-04-14 15:00:00'),
+(13, 1, 'Good idea. I will draft one tonight and share here before posting to Ed.', '2026-04-14 15:10:00'),
+(13, 2, 'Grading rubric for Part 1 is ready. Sending to both of you now.', '2026-04-20 11:00:00'),
+(13, 7, 'Received. Looks comprehensive. One question - how many points for the ER diagram?', '2026-04-20 11:10:00'),
+(13, 2, '20 points out of 100. Correctness counts for 15, notation for 5.', '2026-04-20 11:15:00'),
+(13, 1, 'Part 1 submissions closed. 24 out of 26 groups submitted. Starting grading now.', '2026-04-29 17:00:00'),
+(13, 7, 'I will take groups 1-12, @bobsmith can you do 13-24?', '2026-04-29 17:05:00'),
+(13, 2, 'On it. Should have grades done by May 5.', '2026-04-29 17:10:00');
+
+-- WS2: #events continued
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(5, 2, 'Demo day was a huge success! Over 80 people came through.', '2026-04-21 18:00:00'),
+(5, 3, 'The line-follower bot was definitely the crowd favorite.', '2026-04-21 18:10:00'),
+(5, 4, 'Three prospective members already filled out the interest form.', '2026-04-21 18:15:00'),
+(5, 8, 'The video reel got 400 views on Instagram overnight!', '2026-04-21 18:30:00'),
+(5, 2, 'Amazing work everyone. Next event: end of year showcase on May 15.', '2026-04-22 09:00:00'),
+(5, 3, 'For the showcase I think we should add the drone demo if it is ready.', '2026-04-22 09:15:00'),
+(5, 8, 'Drone prototype is 80% done. Should be flight-ready by May 10.', '2026-04-22 09:20:00'),
+(5, 2, 'Exciting! Let us plan a test flight in the gym the week before.', '2026-04-22 09:30:00'),
+(5, 4, 'I can reserve the gym for May 8 evening if that works.', '2026-04-22 09:35:00'),
+(5, 2, 'Perfect. Book it.', '2026-04-22 09:36:00');
+
+-- WS2: #competitions continued
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(6, 2, 'Update: we shaved our time down to 9.8 seconds with the new PID constants.', '2026-04-15 19:00:00'),
+(6, 3, 'Getting close! We need to hit sub-9 to have a shot at winning.', '2026-04-15 19:10:00'),
+(6, 2, 'The reflectance sensors Dave suggested made a huge difference on curves.', '2026-04-15 19:15:00'),
+(6, 3, 'I ran overnight simulations. Optimal PID values are Kp=1.2, Ki=0.05, Kd=0.8.', '2026-04-16 08:00:00'),
+(6, 2, 'Testing those now. Fingers crossed.', '2026-04-16 08:05:00'),
+(6, 3, 'NEW RECORD: 8.7 seconds! We are competitive now.', '2026-04-16 14:00:00'),
+(6, 2, 'LETS GO! Competition is April 25. Final prep meeting April 23 at 6pm.', '2026-04-16 14:05:00'),
+(6, 3, 'We placed second at RoboNYU! Lost to MIT by 0.4 seconds but it was incredibly close.', '2026-04-25 20:00:00'),
+(6, 2, 'Second place at our first competition is something to be proud of. Incredible team effort.', '2026-04-25 20:10:00'),
+(6, 3, 'Already thinking about next year. We know exactly what to improve.', '2026-04-25 20:15:00');
+
+-- WS2: DM Bob-Carol continued
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(7, 3, 'Bob I thought about what you said. I think I will run for president.', '2026-04-15 10:00:00'),
+(7, 2, 'That is great news! You have my full support. Election is May 1.', '2026-04-15 10:05:00'),
+(7, 3, 'Do I need to prepare a speech?', '2026-04-15 10:08:00'),
+(7, 2, 'Yes, 5 minutes at the general meeting. Just talk about your vision for the club.', '2026-04-15 10:10:00'),
+(7, 3, 'Okay. I am thinking focus on industry partnerships and expanding the workshop series.', '2026-04-15 10:15:00'),
+(7, 2, 'Perfect platform. Members have been asking about workshops since last year.', '2026-04-15 10:18:00'),
+(7, 3, 'I won! 18-4 vote. Thank you for encouraging me.', '2026-05-01 19:30:00'),
+(7, 2, 'Congratulations President Carol! First order of business?', '2026-05-01 19:35:00'),
+(7, 3, 'Reach out to two companies about sponsorship this week.', '2026-05-01 19:38:00'),
+(7, 2, 'Already on it. I know someone at Boston Dynamics.', '2026-05-01 19:40:00');
+
+-- WS2: #software
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(14, 2, 'Starting this channel for software and firmware discussion separate from hardware.', '2026-04-10 10:00:00'),
+(14, 3, 'Good idea. First topic: should we switch from Arduino IDE to PlatformIO?', '2026-04-10 10:10:00'),
+(14, 4, 'PlatformIO is much better for version control and library management. Strongly recommend.', '2026-04-10 10:20:00'),
+(14, 8, 'Agreed. It also integrates nicely with VS Code which most of us already use.', '2026-04-10 10:25:00'),
+(14, 2, 'Okay, let us make the switch. I will write a migration guide for the wiki.', '2026-04-10 10:30:00'),
+(14, 3, 'Also we should start using GitHub Actions for CI on the firmware repo.', '2026-04-14 15:00:00'),
+(14, 8, 'I set up a basic workflow that compiles and lints on every push. Check the pull request.', '2026-04-15 09:00:00'),
+(14, 4, 'Looks great Henry. Approved and merged.', '2026-04-15 09:30:00'),
+(14, 2, 'For the competition bot, all firmware should go through code review before the final run.', '2026-04-20 11:00:00'),
+(14, 3, 'Agreed. No last-minute untested changes at the venue.', '2026-04-20 11:05:00'),
+(14, 8, 'I also started writing unit tests for the PID controller. Caught two edge case bugs already.', '2026-04-22 14:00:00'),
+(14, 4, 'Nice. Testing embedded code is underrated. Good habit to build.', '2026-04-22 14:10:00');
+
+-- WS3: #general continued
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(9, 3, 'Part 1 submitted! Good work everyone. Now on to Part 2.', '2026-04-29 17:00:00'),
+(9, 8, 'What are the main requirements for Part 2?', '2026-04-29 17:10:00'),
+(9, 3, 'Full working app with at least 5 interesting SQL queries and a live demo.', '2026-04-29 17:15:00'),
+(9, 1, 'We basically already have the app. We should focus on polishing and the query writeups.', '2026-04-29 17:20:00'),
+(9, 7, 'I will write up the normalization proofs and query explanations. Leave that section to me.', '2026-04-29 17:25:00'),
+(9, 3, 'Perfect division of labor. @henrykim can you add screenshots of the UI to the report?', '2026-04-30 10:00:00'),
+(9, 8, 'Yes, will do it once we finalize the styling.', '2026-04-30 10:05:00'),
+(9, 1, 'The LaTeX rendering in chat is a nice touch. Might be worth highlighting in the demo.', '2026-04-30 10:10:00'),
+(9, 3, 'Good idea. We can show $E = mc^2$ and a full matrix equation in the demo.', '2026-04-30 10:15:00'),
+(9, 8, 'Also the unread message badge and DM system look really polished now.', '2026-05-01 09:00:00'),
+(9, 3, 'Demo is tomorrow. Everyone please review the demo script in #frontend.', '2026-05-06 20:00:00'),
+(9, 1, 'Reviewed. Looks solid. I think we are ready.', '2026-05-06 20:30:00'),
+(9, 7, 'Same. Let us get some sleep. We have this.', '2026-05-06 20:45:00'),
+(9, 8, 'See everyone tomorrow. Good luck team!', '2026-05-06 21:00:00');
+
+-- WS3: #schema-design continued
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(10, 3, 'Final schema is locked in. No more changes before the demo.', '2026-04-25 14:00:00'),
+(10, 7, 'Agreed. The indexes are solid and all constraints are in place.', '2026-04-25 14:10:00'),
+(10, 8, 'Should we add any views or stored procedures for the demo queries?', '2026-04-25 14:20:00'),
+(10, 7, 'I was thinking a view for unread counts per channel would look impressive.', '2026-04-25 14:30:00'),
+(10, 3, 'Do it. Views are worth extra credit according to the rubric.', '2026-04-25 14:35:00'),
+(10, 7, 'Created the view. Also added an index on messages(chid, postat DESC) for performance.', '2026-04-26 10:00:00'),
+(10, 8, 'The query times dropped significantly. Good call on that index.', '2026-04-26 10:15:00'),
+(10, 3, 'For normalization: our schema is in BCNF. Every non-trivial FD has a superkey on the left.', '2026-04-26 11:00:00'),
+(10, 7, 'I verified this for all six tables. The workspace_members and channel_members tables have composite primary keys which makes it clean.', '2026-04-26 11:15:00'),
+(10, 3, 'Perfect. That section of the report basically writes itself.', '2026-04-26 11:20:00');
+
+-- WS3: DM Carol-Grace continued
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(11, 7, 'Carol the report draft looks really good. I added the normalization section.', '2026-04-20 21:00:00'),
+(11, 3, 'Just read it. The BCNF proofs are really clear. Professor will love this.', '2026-04-20 21:15:00'),
+(11, 7, 'I am a little nervous about the live demo. What if something breaks?', '2026-04-20 21:20:00'),
+(11, 3, 'We have been running it for weeks. It will be fine. Plus we have seed data.', '2026-04-20 21:25:00'),
+(11, 7, 'True. I just want to make sure the LaTeX rendering works live.', '2026-04-20 21:28:00'),
+(11, 3, 'Test it in the morning before class. Type $\nabla^2 \phi = \rho / \varepsilon_0$ and see what happens.', '2026-04-20 21:30:00'),
+(11, 7, 'Ha okay will do. Also can we go over the query explanations one more time tomorrow?', '2026-04-20 21:35:00'),
+(11, 3, 'Sure. Meet at the library at 9am?', '2026-04-20 21:37:00'),
+(11, 7, 'Perfect. See you then.', '2026-04-20 21:38:00'),
+(11, 3, 'Report is submitted! 11:58pm. That was close.', '2026-05-03 23:58:00'),
+(11, 7, 'I saw! Great work. Now just the demo.', '2026-05-04 00:01:00'),
+(11, 3, 'We are going to crush it.', '2026-05-04 00:03:00');
+
+-- WS3: #frontend
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(15, 8, 'Kicking off this channel for frontend-specific discussion.', '2026-04-14 10:00:00'),
+(15, 3, 'Good idea. Current status: login, workspaces, channels, and messaging all work.', '2026-04-14 10:05:00'),
+(15, 1, 'What is left to polish before the demo?', '2026-04-14 10:10:00'),
+(15, 8, 'Unread badges, DM display names, and the timestamp formatting.', '2026-04-14 10:15:00'),
+(15, 3, 'Also want to add channel search and LaTeX rendering if we have time.', '2026-04-14 10:20:00'),
+(15, 8, 'LaTeX is done! Using react-markdown with remark-math and rehype-katex.', '2026-04-18 15:00:00'),
+(15, 1, 'Tested it. Renders beautifully. Try $$\\int_{-\\infty}^{\\infty} e^{-x^2} dx = \\sqrt{\\pi}$$', '2026-04-18 15:10:00'),
+(15, 8, 'Channel search also works now. Click the magnifying glass in the header.', '2026-04-22 11:00:00'),
+(15, 3, 'Nice! The DM section is now separate from channels in the sidebar. Looks much cleaner.', '2026-04-22 11:15:00'),
+(15, 8, 'Unread counts clear when you click a channel. Timestamps are 12-hour format.', '2026-04-25 14:00:00'),
+(15, 1, 'This is looking really professional. Good work everyone.', '2026-04-25 14:30:00'),
+(15, 3, 'Demo script: log in as alicezhang, show workspaces, send a LaTeX message, check DMs, search a keyword.', '2026-05-06 19:00:00'),
+(15, 8, 'Got it. I will drive the demo since I know the UI best.', '2026-05-06 19:05:00'),
+(15, 1, 'Sounds good. Keep it under 5 minutes for the walkthrough.', '2026-05-06 19:10:00');
+
+-- WS3: #queries
+INSERT INTO messages (chid, uid, content, postat) VALUES
+(16, 7, 'This channel is for discussing our demo SQL queries.', '2026-04-20 10:00:00'),
+(16, 3, 'Query 1: unread messages per channel for a given user. Uses last_read_msgid.', '2026-04-20 10:05:00'),
+(16, 8, 'Query 2: most active users by message count. Simple aggregate but looks good on screen.', '2026-04-20 10:10:00'),
+(16, 7, 'Query 3: keyword search across all messages in a workspace. Uses ILIKE.', '2026-04-20 10:15:00'),
+(16, 1, 'Query 4: channels with the most unread messages. Useful for admin dashboards.', '2026-04-20 10:20:00'),
+(16, 3, 'Query 5: user engagement - how many channels each user is active in.', '2026-04-20 10:25:00'),
+(16, 7, 'I wrote all five with sample output. Check query.sql in the repo.', '2026-04-21 09:00:00'),
+(16, 8, 'These look great. The unread messages one especially - it shows off the last_read_msgid design.', '2026-04-21 09:15:00'),
+(16, 3, 'Exactly. That was a deliberate schema decision and it pays off here.', '2026-04-21 09:20:00'),
+(16, 7, 'Should we also prepare a query that the TA might ask on the spot? Like top 3 channels by activity this week?', '2026-04-28 14:00:00'),
+(16, 1, 'Good thinking. I added a few ad-hoc friendly queries at the bottom of query.sql.', '2026-04-28 14:30:00'),
+(16, 3, 'Perfect. We should be able to answer any reasonable SQL question about this schema.', '2026-04-28 14:35:00');

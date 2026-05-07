@@ -6,7 +6,7 @@ function WorkspaceList({ workspaces, wsid, setWsid, onCreateWorkspace }) {
 
         <button
           onClick={onCreateWorkspace}
-          className="bg-white/10 px-2 rounded hover:bg-white/20"
+          className="w-6 h-6 flex items-center justify-center bg-white/10 rounded hover:bg-white/20"
         >
           +
         </button>

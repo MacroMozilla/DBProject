@@ -16,7 +16,7 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY . .
 
 # Build React frontend
-RUN cd frontend && npm ci && npm run build
+RUN cd frontend && npm install && npm run build
 
 RUN sed -i 's/\r$//' wait-for-db.sh && chmod +x wait-for-db.sh
 

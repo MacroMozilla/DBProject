@@ -2,9 +2,9 @@ import { useEffect, useState } from "react";
 import Modal from "./Modal";
 import { fetchWorkspaceMembers, inviteToChannel } from "../services/api";
 
-function CreateChannelModal({ wsid, onClose, onCreate }) {
+function CreateChannelModal({ wsid, onClose, onCreate, dmOnly = false }) {
   const [name, setName] = useState("");
-  const [type, setType] = useState("public");
+  const [type, setType] = useState(dmOnly ? "direct" : "public");
   const [members, setMembers] = useState([]);
   const [selected, setSelected] = useState([]);
   const [error, setError] = useState("");
@@ -83,8 +83,8 @@ function CreateChannelModal({ wsid, onClose, onCreate }) {
   };
 
   return (
-    <Modal title="Create Channel" onClose={onClose}>
-      {type !== "direct" && (
+    <Modal title={dmOnly ? "New Direct Message" : "Create Channel"} onClose={onClose}>
+      {!dmOnly && (
         <input
           placeholder="Channel name"
           value={name}
@@ -93,21 +93,24 @@ function CreateChannelModal({ wsid, onClose, onCreate }) {
         />
       )}
 
-      <select
-        value={type}
-        onChange={(e) => handleTypeChange(e.target.value)}
-        className="w-full mb-1 p-2 border rounded"
-      >
-        <option value="public">Public</option>
-        <option value="private">Private</option>
-        <option value="direct">Direct Message</option>
-      </select>
-      <p className="text-xs text-gray-400 mb-3">{typeDescriptions[type]}</p>
+      {!dmOnly && (
+        <>
+          <select
+            value={type}
+            onChange={(e) => handleTypeChange(e.target.value)}
+            className="w-full mb-1 p-2 border rounded"
+          >
+            <option value="public">Public</option>
+            <option value="private">Private</option>
+          </select>
+          <p className="text-xs text-gray-400 mb-3">{typeDescriptions[type]}</p>
+        </>
+      )}
 
-      {type !== "public" && (
+      {(dmOnly || type !== "public") && (
         <div className="mb-4">
           <div className="text-sm font-semibold mb-2">
-            {type === "direct" ? "Select a user" : "Invite members (optional)"}
+            {dmOnly || type === "direct" ? "Select a user" : "Invite members (optional)"}
           </div>
           <div className="max-h-40 overflow-y-auto border rounded p-2">
             {members.length === 0 && (
