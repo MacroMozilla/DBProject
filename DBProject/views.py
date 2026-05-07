@@ -262,26 +262,6 @@ def mark_channel_read(request, chid):
 
 
 @rpc
-def mark_channel_read(request, chid):
-    uid = request.session.get("uid")
-    if not uid:
-        return {"error": "not logged in"}
-    with connection.cursor() as c:
-        c.execute(
-            """
-            UPDATE channel_members
-            SET last_read_msgid = (
-                SELECT COALESCE(MAX(msgid), 0) FROM messages WHERE chid = %s
-            ),
-            updatedat = CURRENT_TIMESTAMP
-            WHERE chid = %s AND uid = %s
-            """,
-            [chid, chid, uid],
-        )
-    return {"ok": True}
-
-
-@rpc
 def create_channel(request, wsid, chname, chtype="public"):
     uid = request.session.get("uid")
     if not uid:
