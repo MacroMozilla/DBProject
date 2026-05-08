@@ -549,7 +549,7 @@ SELECT * FROM search_accessible_messages(1, 'database');
 \section{Test Data}
 \label{sec:testdata}
 
-The test dataset consists of \textbf{8 users}, \textbf{3 workspaces}, \textbf{11 channels} (covering public, private, and direct types), and \textbf{over 120 messages} with realistic conversation content.
+The test dataset consists of \textbf{8 users}, \textbf{3 workspaces}, \textbf{16 channels} (covering public, private, and direct types), and \textbf{over 300 messages} with realistic conversation content.
 
 \subsection{Data Structure Overview}
 
@@ -558,7 +558,7 @@ The test dataset consists of \textbf{8 users}, \textbf{3 workspaces}, \textbf{11
     \item \textbf{3 workspaces:} CS Department (academic faculty), Tandon Robotics Club (student extracurricular), DB Project Team (course project). This variety creates realistic, distinguishable usage patterns.
     \item \textbf{Role diversity:} Alice is a workspace creator (WS1) and channel creator. Bob is both a workspace creator (WS2) and an admin (WS1). Carol is a workspace creator (WS3) and admin (WS2). This tests query~(3).
     \item \textbf{Pending invitations:} Eve has a pending workspace invite; Dave and Frank have pending channel invites older than 5 days. This tests query~(4).
-    \item \textbf{120+ messages} are distributed across all 11 channels with natural conversation patterns covering topics such as curriculum planning, paper submissions, robotics competitions, hardware procurement, and database schema design.
+    \item \textbf{300+ messages} are distributed across all 16 channels with natural conversation patterns covering topics such as curriculum planning, paper submissions, robotics competitions, hardware procurement, and database schema design.
     \item \textbf{Diverse channel types} per workspace: each workspace has public channels, and at least one private channel or direct message channel.
 \end{itemize}
 
@@ -736,9 +736,8 @@ The frontend is a React single-page application with the following component hie
     \begin{itemize}
         \item \texttt{WorkspaceList.js} --- left sidebar listing workspaces with create button
         \item \texttt{ChannelList.js} --- middle sidebar listing channels with create/browse buttons
-        \item \texttt{ChatWindow.js} --- message display with timestamps, message input with emoji picker
+        \item \texttt{ChatWindow.js} --- message display with timestamps, per-channel keyword search, and message input with emoji picker
         \item \texttt{Inbox.js} --- dropdown for pending workspace and channel invitations
-        \item \texttt{SearchModal.js} --- keyword search across all accessible messages
         \item \texttt{CreateWorkspaceModal.js} --- workspace creation with optional member invites
         \item \texttt{CreateChannelModal.js} --- channel creation (public/private/direct)
         \item \texttt{WorkspaceMembersModal.js} --- member management, role changes, member removal
@@ -772,7 +771,7 @@ export const apiCall = async (func, args = [], kwargs = {}) => {
     \item \textbf{Messaging} --- send and view messages in real-time within a channel. Messages display chronologically with sender name and timestamp.
     \item \textbf{Invitation inbox} --- pending workspace and channel invitations appear in a dropdown; users can accept or reject each with a single click.
     \item \textbf{Public channel discovery} --- a ``Browse'' button lists public channels in the current workspace that the user has not yet joined. One-click join.
-    \item \textbf{Message search} --- a search modal allows users to search for messages by keyword across all channels they have access to. Results show the channel name, author, content, and timestamp.
+    \item \textbf{Per-channel message search} --- a search icon in the channel header lets users filter messages in the current channel by keyword in real time.
     \item \textbf{Emoji picker} --- an inline emoji picker with categorized Unicode emoji (Smileys, Gestures, Hearts, Objects, Food, Animals, Nature) allows users to insert emoji into messages.
 \end{enumerate}
 
@@ -969,7 +968,6 @@ The main interface consists of three panels:
 \subsection{Top Bar Actions}
 
 \begin{itemize}
-    \item \textbf{Search:} Opens a modal where you can search for messages by keyword across all your accessible channels. Results show the channel name, author, content, and timestamp.
     \item \textbf{Inbox:} Shows pending workspace and channel invitations. Accept or reject each with a single click.
     \item \textbf{Logout:} Ends the session and returns to the login page.
 \end{itemize}
@@ -1002,7 +1000,7 @@ Click ``Channel settings'' at the bottom of the channel sidebar to:
     \item \textbf{Send messages:} Type in the input field and press Enter or click Send.
     \item \textbf{Emoji:} Click the emoji button (smiley face) to open a picker with 7 categories (Smileys, Gestures, Hearts, Objects, Food, Animals, Nature). Click any emoji to insert it into the message.
     \item \textbf{Timestamps:} Each message displays the sender's username and the time it was posted.
-    \item \textbf{Search:} Use the Search button in the top bar to find messages containing a keyword across all channels you have access to.
+    \item \textbf{Per-channel search:} Click the magnifying glass icon in the channel header to filter messages in the current channel by keyword.
 \end{itemize}
 
 
@@ -1110,19 +1108,24 @@ Below are representative session logs demonstrating the core functionality of th
     \end{itemize}
 \end{enumerate}
 
-\subsection{Session 5: Message Search with Access Control}
+\subsection{Session 5: Per-Channel Search}
 
 \begin{enumerate}
-    \item Alice searches for ``PostgreSQL'':
+    \item Alice opens the DB Project Team workspace and selects \#schema-design:
     \begin{itemize}
-        \item \texttt{search\_messages(keyword="PostgreSQL")}
-        \item Results include messages from WS3 \#general (where she is a member) but \textbf{not} from WS2 channels (where her invite is still pending).
+        \item \texttt{login(username="alicezhang", password="alice123")}
+        \item \texttt{get\_messages(chid=10)} $\Rightarrow$ Returns all messages in \#schema-design.
     \end{itemize}
 
-    \item Dave searches for the same keyword:
+    \item Alice clicks the search icon in the channel header and types ``BCNF'':
     \begin{itemize}
-        \item \texttt{search\_messages(keyword="PostgreSQL")}
-        \item Dave gets results only from WS2 channels where he is an accepted member. He does not see WS3 results because his WS3 invite is still pending.
+        \item The message list filters client-side to show only messages containing ``BCNF''.
+        \item No additional API call is made --- the filter operates on the already-loaded message list.
+    \end{itemize}
+
+    \item Alice clears the search field:
+    \begin{itemize}
+        \item All messages in \#schema-design are shown again.
     \end{itemize}
 \end{enumerate}
 
@@ -1171,7 +1174,7 @@ The following features go beyond the basic requirements:
 \begin{enumerate}
     \item \textbf{Emoji Picker.} The chat input includes an inline emoji picker with 7 categories and over 120 Unicode emoji characters. Users can browse categories (Smileys, Gestures, Hearts, Objects, Food, Animals, Nature) and click to insert. The picker closes automatically when clicking outside.
 
-    \item \textbf{Message Search with Access Control.} The search function respects workspace and channel membership --- users can only find messages in channels they have been accepted into. The search uses PostgreSQL's \texttt{ILIKE} for case-insensitive matching.
+    \item \textbf{Per-Channel Message Search.} A search icon in the channel header lets users filter the current channel's messages by keyword in real time. The filter operates client-side on the loaded message list with no additional database round-trip.
 
     \item \textbf{Public Channel Discovery.} A ``Browse Channels'' feature lets users discover and join public channels in their workspaces with a single click, similar to Slack's channel browser.
 
@@ -1191,6 +1194,6 @@ We have designed and implemented \textit{snickr}, a fully functional web-based c
 
 Security measures include parameterized queries against SQL injection, React's automatic XSS escaping, session-based authentication, CORS-restricted API access, and transactional consistency for multi-step operations. The system can be deployed locally via Docker Compose for a live demonstration.
 
-The test dataset includes 8 users across 3 workspaces with 11 channels and over 120 messages, providing rich data for demonstrating all features during the demo.
+The test dataset includes 8 users across 3 workspaces with 16 channels and over 300 messages, providing rich data for demonstrating all features during the demo.
 
 \end{document}

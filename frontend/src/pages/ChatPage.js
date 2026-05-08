@@ -9,7 +9,6 @@ import CreateChannelModal from "../components/CreateChannelModal";
 import WorkspaceMembersModal from "../components/WorkspaceMembersModal";
 import ChannelSettingsModal from "../components/ChannelSettingsModal";
 import DiscoverChannelsModal from "../components/DiscoverChannelsModal";
-import SearchModal from "../components/SearchModal";
 
 import {
   fetchWorkspaces,
@@ -37,10 +36,10 @@ function ChatPage({ user, setUser }) {
 
   const [showCreateWorkspace, setShowCreateWorkspace] = useState(false);
   const [showCreateChannel, setShowCreateChannel] = useState(false);
+  const [showCreateDM, setShowCreateDM] = useState(false);
   const [showWsMembers, setShowWsMembers] = useState(false);
   const [showChannelSettings, setShowChannelSettings] = useState(false);
   const [showDiscover, setShowDiscover] = useState(false);
-  const [showSearch, setShowSearch] = useState(false);
 
   const [wsid, setWsid] = useState(null);
   const [chid, setChid] = useState(null);
@@ -69,6 +68,8 @@ function ChatPage({ user, setUser }) {
     if (!chid) return;
     fetchMessages(chid).then(setMessages);
     fetchChannelMembers(chid).then((data) => setChannelMembers(data || []));
+    markChannelRead(chid);
+    if (wsid) fetchChannels(wsid).then(setChannels);
   }, [chid]);
 
   // =========================
@@ -124,11 +125,6 @@ function ChatPage({ user, setUser }) {
     fetchWorkspaces().then(setWorkspaces);
   };
 
-  const handleJumpTo = (wsid, chid) => {
-    setWsid(wsid);
-    // channels will load via useEffect, then we set chid after a tick
-    setTimeout(() => setChid(chid), 100);
-  };
 
   const handleChannelGone = async () => {
     setChid(null);
@@ -150,14 +146,6 @@ function ChatPage({ user, setUser }) {
 
         <div className="flex items-center gap-4 relative">
           <span className="text-sm">{user.username}</span>
-
-          {/* SEARCH */}
-          <button
-            onClick={() => setShowSearch(true)}
-            className="bg-white/10 px-3 py-1 rounded hover:bg-white/20 text-sm"
-          >
-            🔍 Search
-          </button>
 
           <div className="relative">
             <button
@@ -220,16 +208,9 @@ function ChatPage({ user, setUser }) {
               chid={chid}
               setChid={setChid}
               onCreateChannel={() => setShowCreateChannel(true)}
+              onCreateDM={() => setShowCreateDM(true)}
+              onBrowse={wsid ? () => setShowDiscover(true) : null}
             />
-            {/* Discover sits below the list, inside the same scroll area */}
-            {wsid && (
-              <button
-                onClick={() => setShowDiscover(true)}
-                className="mt-2 text-xs text-gray-400 hover:text-gray-700 flex items-center gap-1"
-              >
-                🔍 Browse public channels
-              </button>
-            )}
           </div>
 
           {/* Channel actions — only when one is selected */}
@@ -276,6 +257,15 @@ function ChatPage({ user, setUser }) {
         />
       )}
 
+      {showCreateDM && wsid && (
+        <CreateChannelModal
+          wsid={wsid}
+          onClose={() => setShowCreateDM(false)}
+          onCreate={handleCreateChannel}
+          dmOnly
+        />
+      )}
+
       {showWsMembers && wsid && (
         <WorkspaceMembersModal
           wsid={wsid}
@@ -297,13 +287,6 @@ function ChatPage({ user, setUser }) {
         />
       )}
 
-      {showSearch && (
-        <SearchModal
-          onClose={() => setShowSearch(false)}
-          onJumpTo={handleJumpTo}
-        />
-      )}
-
       {showDiscover && wsid && (
         <DiscoverChannelsModal
           wsid={wsid}
@@ -312,9 +295,6 @@ function ChatPage({ user, setUser }) {
         />
       )}
 
-      {showSearch && (
-        <SearchModal onClose={() => setShowSearch(false)} />
-      )}
     </div>
   );
 }

@@ -17,14 +17,12 @@ const EMOJI_CATEGORIES = {
 
 const IMAGE_URL_REGEX = /(https?:\/\/\S+\.(?:gif|png|jpe?g|webp)(?:\?\S*)?)/gi;
 
-// Convert bare image URLs to markdown image syntax and highlight @mentions
 function preprocessContent(content) {
   let processed = content.replace(IMAGE_URL_REGEX, (url) => {
     const idx = content.indexOf(url);
     if (idx > 0 && (content[idx - 1] === "(" || content[idx - 2] === "]")) return url;
     return `\n![](${url})\n`;
   });
-  // Bold @mentions so they stand out
   processed = processed.replace(/@(\w+)/g, "**@$1**");
   return processed;
 }
@@ -36,7 +34,6 @@ function MessageContent({ content, isMe }) {
       remarkPlugins={[remarkMath, remarkGfm]}
       rehypePlugins={[rehypeKatex]}
       components={{
-        // Render images inline with size limit
         img: ({ src, alt }) => (
           <img
             src={src}
@@ -46,9 +43,7 @@ function MessageContent({ content, isMe }) {
             onError={(e) => { e.target.style.display = "none"; }}
           />
         ),
-        // Keep paragraphs compact in chat bubbles
         p: ({ children }) => <p className="my-0.5">{children}</p>,
-        // Style inline code (code blocks are wrapped in <pre> by markdown)
         code: ({ children, className, ...props }) => (
           <code className={`px-1 rounded text-sm ${isMe ? "bg-white/20" : "bg-gray-300"} ${className || ""}`} {...props}>
             {children}
@@ -59,7 +54,6 @@ function MessageContent({ content, isMe }) {
             {children}
           </pre>
         ),
-        // Style links
         a: ({ href, children }) => (
           <a href={href} target="_blank" rel="noopener noreferrer"
              className={`underline ${isMe ? "text-blue-200" : "text-blue-600"}`}>
@@ -73,17 +67,37 @@ function MessageContent({ content, isMe }) {
   );
 }
 
+function formatDateDivider(dateStr) {
+  if (!dateStr) return "";
+  const [year, month, day] = dateStr.split("-").map(Number);
+  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
+    month: "long", day: "numeric", year: "numeric",
+  });
+}
+
+function formatTime(postat) {
+  if (!postat) return "";
+  const h = parseInt(postat.slice(11, 13), 10);
+  const m = postat.slice(14, 16);
+  const period = h >= 12 ? "PM" : "AM";
+  const hour = h % 12 || 12;
+  return `${hour}:${m} ${period}`;
+}
+
 function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channelName, channelMembers = [] }) {
   const [showEmojiPicker, setShowEmojiPicker] = useState(false);
   const [emojiCategory, setEmojiCategory] = useState("Smileys");
-  const [mentionQuery, setMentionQuery] = useState(null); // null = hidden, string = filter
+  const [searchActive, setSearchActive] = useState(false);
+  const [searchQuery, setSearchQuery] = useState("");
+  const [mentionQuery, setMentionQuery] = useState(null);
   const [mentionIndex, setMentionIndex] = useState(0);
 
-  const pickerRef = useRef(null);
+  const inputAreaRef = useRef(null);
   const textareaRef = useRef(null);
   const mentionRef = useRef(null);
+  const searchInputRef = useRef(null);
+  const messagesEndRef = useRef(null);
 
-  // Filtered members for @mention dropdown
   const mentionResults = mentionQuery !== null
     ? channelMembers
         .filter((m) => m.status === "accepted")
@@ -94,10 +108,15 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
         .slice(0, 8)
     : [];
 
-  // Close emoji picker on outside click
+  // Scroll to bottom whenever messages change
+  useEffect(() => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "instant" });
+  }, [messages]);
+
+  // Close emoji picker when clicking outside the input area
   useEffect(() => {
     function handleClickOutside(e) {
-      if (pickerRef.current && !pickerRef.current.contains(e.target)) {
+      if (inputAreaRef.current && !inputAreaRef.current.contains(e.target)) {
         setShowEmojiPicker(false);
       }
     }
@@ -105,19 +124,28 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
     return () => document.removeEventListener("mousedown", handleClickOutside);
   }, []);
 
+  // Focus search input when activated
+  useEffect(() => {
+    if (searchActive) searchInputRef.current?.focus();
+  }, [searchActive]);
+
+  // Reset search when channel changes
+  useEffect(() => {
+    setSearchActive(false);
+    setSearchQuery("");
+  }, [chid]);
+
   const insertEmoji = (emoji) => {
     setInput((prev) => prev + emoji);
+    textareaRef.current?.focus();
   };
 
-  // Extract @mention query from current cursor position
   const handleInputChange = (e) => {
     const val = e.target.value;
     setInput(val);
-
     const cursorPos = e.target.selectionStart;
     const textBeforeCursor = val.slice(0, cursorPos);
     const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
-
     if (mentionMatch) {
       setMentionQuery(mentionMatch[1]);
       setMentionIndex(0);
@@ -126,7 +154,6 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
     }
   };
 
-  // Insert selected mention into input
   const selectMention = (member) => {
     const textarea = textareaRef.current;
     if (!textarea) return;
@@ -135,13 +162,10 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
     const textAfterCursor = input.slice(cursorPos);
     const mentionMatch = textBeforeCursor.match(/@(\w*)$/);
     if (!mentionMatch) return;
-
     const beforeMention = textBeforeCursor.slice(0, mentionMatch.index);
     const newText = `${beforeMention}@${member.username} ${textAfterCursor}`;
     setInput(newText);
     setMentionQuery(null);
-
-    // Restore cursor position after React re-render
     const newCursorPos = beforeMention.length + 1 + member.username.length + 1;
     setTimeout(() => {
       textarea.focus();
@@ -149,55 +173,129 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
     }, 0);
   };
 
+  // Filter messages by search query
+  const displayMessages = searchQuery.trim()
+    ? messages.filter((m) =>
+        m.content.toLowerCase().includes(searchQuery.toLowerCase())
+      )
+    : messages;
+
+  // Annotate each message: whether to show its timestamp and whether to show a date divider above it
+  const annotated = displayMessages.map((msg, idx, arr) => {
+    const msgMinute = msg.postat?.slice(0, 16);
+    const nextMsg = arr[idx + 1];
+    const showTime = !nextMsg || msgMinute !== nextMsg.postat?.slice(0, 16);
+
+    const msgDate = msg.postat?.slice(0, 10);
+    const prevDate = arr[idx - 1]?.postat?.slice(0, 10);
+    const showDateDivider = idx === 0 || msgDate !== prevDate;
+
+    return { msg, showTime, showDateDivider, msgDate };
+  });
+
   return (
     <div className="flex flex-col h-full bg-gray-100">
 
       {/* Header */}
-      <div className="px-4 py-3 border-b bg-white font-semibold">
-        {channelName ? `#${channelName}` : "Select a channel"}
+      <div className="px-4 py-3 border-b bg-white font-semibold flex items-center justify-between">
+        {searchActive ? (
+          <>
+            <input
+              ref={searchInputRef}
+              value={searchQuery}
+              onChange={(e) => setSearchQuery(e.target.value)}
+              onKeyDown={(e) => e.key === "Escape" && (setSearchActive(false), setSearchQuery(""))}
+              placeholder="Search in channel..."
+              className="flex-1 text-sm font-normal focus:outline-none"
+            />
+            <button
+              onClick={() => { setSearchActive(false); setSearchQuery(""); }}
+              className="ml-2 text-gray-400 hover:text-gray-600 text-lg leading-none"
+              title="Close search"
+            >
+              ✕
+            </button>
+          </>
+        ) : (
+          <>
+            <span>{channelName ? `#${channelName}` : "Select a channel"}</span>
+            {chid && (
+              <button
+                onClick={() => setSearchActive(true)}
+                className="text-gray-400 hover:text-gray-600 ml-2"
+                title="Search in channel"
+              >
+                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                  <path strokeLinecap="round" strokeLinejoin="round" d="M21 21l-4.35-4.35M17 11A6 6 0 1 1 5 11a6 6 0 0 1 12 0z" />
+                </svg>
+              </button>
+            )}
+          </>
+        )}
       </div>
 
       {/* Messages */}
       <div
         id="chat-container"
-        className="flex-1 overflow-y-auto p-4 flex flex-col gap-3"
+        className="flex-1 overflow-y-auto p-4 flex flex-col gap-1"
       >
-        {messages.length === 0 && (
-          <div className="text-gray-400">No messages yet</div>
+        {displayMessages.length === 0 && (
+          <div className="text-gray-400">
+            {searchQuery.trim() ? "No messages match your search." : "No messages yet"}
+          </div>
         )}
 
-        {messages.map((msg) => {
+        {annotated.map(({ msg, showTime, showDateDivider, msgDate }) => {
           const isMe = msg.username === user.username;
 
           return (
-            <div
-              key={msg.msgid}
-              className={`flex ${isMe ? "justify-end" : "justify-start"}`}
-            >
-              <div
-                className={`max-w-xs px-4 py-2 rounded-2xl shadow
-                  ${isMe ? "bg-[#240057] text-white" : "bg-gray-200 text-black"}`}
-              >
-                <div className="flex justify-between items-center text-xs opacity-70 mb-1">
-                  <span className="font-semibold">{msg.username}</span>
-                  <span className="ml-2">{msg.postat?.replace("T", " ")}</span>
+            <div key={msg.msgid}>
+              {/* Date divider */}
+              {showDateDivider && (
+                <div className="flex items-center gap-3 my-3">
+                  <div className="flex-1 h-px bg-gray-300" />
+                  <span className="text-xs text-gray-400 whitespace-nowrap">
+                    {formatDateDivider(msgDate)}
+                  </span>
+                  <div className="flex-1 h-px bg-gray-300" />
                 </div>
-                <MessageContent content={msg.content} isMe={isMe} />
+              )}
+
+              {/* Message bubble */}
+              <div className={`flex ${isMe ? "justify-end" : "justify-start"}`}>
+                <div className="flex flex-col">
+                  <div
+                    className={`max-w-xs px-4 py-2 rounded-2xl shadow
+                      ${isMe ? "bg-[#240057] text-white" : "bg-gray-200 text-black"}`}
+                  >
+                    <div className="text-xs opacity-70 mb-1 font-semibold">{msg.username}</div>
+                    <MessageContent content={msg.content} isMe={isMe} />
+                  </div>
+                  {showTime && (
+                    <span className={`text-xs text-gray-400 mt-0.5 ${isMe ? "text-right" : "text-left"}`}>
+                      {formatTime(msg.postat)}
+                    </span>
+                  )}
+                </div>
               </div>
             </div>
           );
         })}
+        <div ref={messagesEndRef} />
       </div>
 
       {/* Input */}
-      <div className="p-3 border-t bg-white flex gap-2 relative">
-        <div className="flex-1 relative">
+      <div
+        className="border-t bg-white"
+        style={{ display: 'grid', gridTemplateColumns: '1fr auto', alignItems: 'end', gap: '8px', padding: '12px' }}
+        ref={inputAreaRef}
+      >
+        <div style={{ position: 'relative', minWidth: 0 }}>
           <textarea
             ref={textareaRef}
             value={input}
             onChange={handleInputChange}
             onKeyDown={(e) => {
-              // Mention dropdown keyboard navigation
               if (mentionQuery !== null && mentionResults.length > 0) {
                 if (e.key === "ArrowDown") {
                   e.preventDefault();
@@ -225,14 +323,58 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
               }
             }}
             placeholder="Type a message (@ to mention, Shift+Enter for new line)"
-            rows={1}
-            className="w-full p-3 rounded-lg border-2 border-[#240057] focus:outline-none resize-none"
-            style={{ minHeight: "44px", maxHeight: "120px" }}
+            className="w-full px-3 pr-10 rounded-lg border-2 border-[#240057] focus:outline-none resize-none block"
+            style={{ height: "44px", maxHeight: "120px", lineHeight: "24px", paddingTop: "10px", paddingBottom: "10px", overflowY: "hidden" }}
             onInput={(e) => {
               e.target.style.height = "44px";
               e.target.style.height = Math.min(e.target.scrollHeight, 120) + "px";
             }}
           />
+
+          {/* Emoji button inside textarea */}
+          <button
+            onClick={() => setShowEmojiPicker((prev) => !prev)}
+            className="absolute text-gray-400 hover:text-gray-600 text-xl"
+            style={{ right: '8px', top: '50%', transform: 'translateY(-50%)' }}
+            title="Emoji"
+          >
+            🙂
+          </button>
+
+          {/* Emoji picker */}
+          {showEmojiPicker && (
+            <div
+              className="absolute bottom-full right-0 mb-1 w-80 bg-white border rounded-xl shadow-xl z-50 flex flex-col"
+              style={{ maxHeight: "360px" }}
+            >
+              <div className="flex gap-1 p-2 border-b overflow-x-auto text-sm">
+                {Object.keys(EMOJI_CATEGORIES).map((cat) => (
+                  <button
+                    key={cat}
+                    onClick={() => setEmojiCategory(cat)}
+                    className={`px-2 py-1 rounded whitespace-nowrap ${
+                      emojiCategory === cat ? "bg-[#240057] text-white" : "hover:bg-gray-100"
+                    }`}
+                  >
+                    {cat}
+                  </button>
+                ))}
+              </div>
+              <div className="p-2 overflow-y-auto flex-1">
+                <div className="grid grid-cols-8 gap-1">
+                  {EMOJI_CATEGORIES[emojiCategory].map((emoji) => (
+                    <button
+                      key={emoji}
+                      onClick={() => insertEmoji(emoji)}
+                      className="text-2xl p-1 hover:bg-gray-100 rounded cursor-pointer"
+                    >
+                      {emoji}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          )}
 
           {/* @Mention dropdown */}
           {mentionQuery !== null && mentionResults.length > 0 && (
@@ -261,57 +403,10 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
           )}
         </div>
 
-        {/* Emoji Picker */}
-        <div className="relative" ref={pickerRef}>
-          <button
-            onClick={() => setShowEmojiPicker((prev) => !prev)}
-            className="px-3 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 text-xl"
-            title="Emoji"
-          >
-            😀
-          </button>
-
-          {showEmojiPicker && (
-            <div className="absolute bottom-12 right-0 w-80 bg-white border rounded-xl shadow-xl z-50 flex flex-col"
-                 style={{ maxHeight: "360px" }}>
-              {/* Category tabs */}
-              <div className="flex gap-1 p-2 border-b overflow-x-auto text-sm">
-                {Object.keys(EMOJI_CATEGORIES).map((cat) => (
-                  <button
-                    key={cat}
-                    onClick={() => setEmojiCategory(cat)}
-                    className={`px-2 py-1 rounded whitespace-nowrap ${
-                      emojiCategory === cat
-                        ? "bg-[#240057] text-white"
-                        : "hover:bg-gray-100"
-                    }`}
-                  >
-                    {cat}
-                  </button>
-                ))}
-              </div>
-
-              {/* Emoji grid */}
-              <div className="p-2 overflow-y-auto flex-1">
-                <div className="grid grid-cols-8 gap-1">
-                  {EMOJI_CATEGORIES[emojiCategory].map((emoji) => (
-                    <button
-                      key={emoji}
-                      onClick={() => insertEmoji(emoji)}
-                      className="text-2xl p-1 hover:bg-gray-100 rounded cursor-pointer"
-                    >
-                      {emoji}
-                    </button>
-                  ))}
-                </div>
-              </div>
-            </div>
-          )}
-        </div>
-
         <button
           onClick={sendMessage}
-          className="px-4 py-2 bg-[#240057] text-white rounded-lg hover:opacity-90"
+          className="px-4 bg-[#240057] text-white rounded-lg hover:opacity-90 shrink-0"
+          style={{ height: '44px' }}
         >
           Send
         </button>

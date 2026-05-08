@@ -216,7 +216,14 @@ def get_channels(request, wsid):
     with connection.cursor() as c:
         c.execute(
             """
-            SELECT c.chid, c.chname, c.chtype,
+            SELECT c.chid,
+                   CASE WHEN c.chtype = 'direct' THEN (
+                       SELECT u.username FROM channel_members cm2
+                       JOIN users u ON cm2.uid = u.uid
+                       WHERE cm2.chid = c.chid AND cm2.uid != %s
+                       LIMIT 1
+                   ) ELSE c.chname END AS chname,
+                   c.chtype,
                    COALESCE((
                        SELECT COUNT(*)
                        FROM messages m
@@ -229,29 +236,9 @@ def get_channels(request, wsid):
               AND cm.status = 'accepted'
             ORDER BY c.chtype, c.chname
             """,
-            [uid, wsid],
+            [uid, uid, wsid],
         )
         return _dictfetchall(c)
-
-
-@rpc
-def mark_channel_read(request, chid):
-    uid = request.session.get("uid")
-    if not uid:
-        return {"error": "not logged in"}
-    with connection.cursor() as c:
-        c.execute(
-            """
-            UPDATE channel_members
-            SET last_read_msgid = (
-                SELECT COALESCE(MAX(msgid), 0) FROM messages WHERE chid = %s
-            ),
-            updatedat = CURRENT_TIMESTAMP
-            WHERE chid = %s AND uid = %s
-            """,
-            [chid, chid, uid],
-        )
-    return {"ok": True}
 
 
 @rpc
