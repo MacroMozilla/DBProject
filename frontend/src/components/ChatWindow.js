@@ -67,21 +67,38 @@ function MessageContent({ content, isMe }) {
   );
 }
 
-function formatDateDivider(dateStr) {
-  if (!dateStr) return "";
-  const [year, month, day] = dateStr.split("-").map(Number);
-  return new Date(year, month - 1, day).toLocaleDateString("en-US", {
-    month: "long", day: "numeric", year: "numeric",
+const ET = "America/New_York";
+
+function toDate(postat) {
+  // Backend timestamps have no tz suffix; Docker runs UTC, so append Z
+  return new Date(postat + "Z");
+}
+
+function getETDateKey(postat) {
+  if (!postat) return "";
+  return toDate(postat).toLocaleDateString("en-CA", { timeZone: ET }); // "YYYY-MM-DD"
+}
+
+function getETMinuteKey(postat) {
+  if (!postat) return "";
+  const d = toDate(postat);
+  const date = d.toLocaleDateString("en-CA", { timeZone: ET });
+  const time = d.toLocaleTimeString("en-US", { timeZone: ET, hour: "2-digit", minute: "2-digit", hour12: false });
+  return `${date}T${time}`;
+}
+
+function formatDateDivider(postat) {
+  if (!postat) return "";
+  return toDate(postat).toLocaleDateString("en-US", {
+    timeZone: ET, month: "long", day: "numeric", year: "numeric",
   });
 }
 
 function formatTime(postat) {
   if (!postat) return "";
-  const h = parseInt(postat.slice(11, 13), 10);
-  const m = postat.slice(14, 16);
-  const period = h >= 12 ? "PM" : "AM";
-  const hour = h % 12 || 12;
-  return `${hour}:${m} ${period}`;
+  return toDate(postat).toLocaleTimeString("en-US", {
+    timeZone: ET, hour: "numeric", minute: "2-digit", hour12: true,
+  });
 }
 
 function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channelName, channelMembers = [] }) {
@@ -182,15 +199,15 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
 
   // Annotate each message: whether to show its timestamp and whether to show a date divider above it
   const annotated = displayMessages.map((msg, idx, arr) => {
-    const msgMinute = msg.postat?.slice(0, 16);
+    const msgMinute = getETMinuteKey(msg.postat);
     const nextMsg = arr[idx + 1];
-    const showTime = !nextMsg || msgMinute !== nextMsg.postat?.slice(0, 16);
+    const showTime = !nextMsg || msgMinute !== getETMinuteKey(nextMsg.postat);
 
-    const msgDate = msg.postat?.slice(0, 10);
-    const prevDate = arr[idx - 1]?.postat?.slice(0, 10);
+    const msgDate = getETDateKey(msg.postat);
+    const prevDate = getETDateKey(arr[idx - 1]?.postat);
     const showDateDivider = idx === 0 || msgDate !== prevDate;
 
-    return { msg, showTime, showDateDivider, msgDate };
+    return { msg, showTime, showDateDivider };
   });
 
   return (
@@ -245,7 +262,7 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
           </div>
         )}
 
-        {annotated.map(({ msg, showTime, showDateDivider, msgDate }) => {
+        {annotated.map(({ msg, showTime, showDateDivider }) => {
           const isMe = msg.username === user.username;
 
           return (
@@ -255,7 +272,7 @@ function ChatWindow({ messages, input, setInput, sendMessage, chid, user, channe
                 <div className="flex items-center gap-3 my-3">
                   <div className="flex-1 h-px bg-gray-300" />
                   <span className="text-xs text-gray-400 whitespace-nowrap">
-                    {formatDateDivider(msgDate)}
+                    {formatDateDivider(msg.postat)}
                   </span>
                   <div className="flex-1 h-px bg-gray-300" />
                 </div>
