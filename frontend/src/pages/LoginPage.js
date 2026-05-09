@@ -2,7 +2,7 @@ import { useState } from "react";
 import { login, apiCall } from "../services/api";
 
 function LoginPage({ setUser, goToRegister}) {
-  const [username, setUsername] = useState("");
+  const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState("");
 
@@ -10,10 +10,10 @@ function LoginPage({ setUser, goToRegister}) {
     setError("");
 
     try {
-      const res = await login(username, password);
+      const res = await login(email, password);
 
       if (res?.error) {
-        setError("Invalid username or password");
+        setError("Invalid email or password");
         return;
       }
 
@@ -41,9 +41,9 @@ function LoginPage({ setUser, goToRegister}) {
 
         <input
           className="w-full border border-gray-300 rounded-lg p-2 mb-4 focus:outline-none focus:ring-2 focus:ring-[#240057]"
-          placeholder="Username"
-          value={username}
-          onChange={(e) => setUsername(e.target.value)}
+          placeholder="Email"
+          value={email}
+          onChange={(e) => setEmail(e.target.value)}
         />
 
         <input

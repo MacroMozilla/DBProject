@@ -50,15 +50,15 @@ def register(request, email, username, nickname, password):
 
 
 @rpc
-def login(request, username, password):
+def login(request, email, password):
     with connection.cursor() as c:
         c.execute(
             """
             SELECT uid, email, username, nickname, pwhash
             FROM users
-            WHERE username = %s
+            WHERE email = %s
             """,
-            [username],
+            [email],
         )
         user = _dictfetchone(c)
 
