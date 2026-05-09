@@ -38,8 +38,8 @@ export const apiCall = async (func, args = [], kwargs = {}) => {
 
 // ================= AUTH =================
 
-export const login = (username, password) =>
-  apiCall("login", [], { username, password });
+export const login = (email, password) =>
+  apiCall("login", [], { email, password });
 
 export const register = (email, username, nickname, password) =>
   apiCall("register", [], { email, username, nickname, password });

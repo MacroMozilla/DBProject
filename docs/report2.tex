@@ -706,12 +706,12 @@ The entire backend is contained in \texttt{DBProject/views.py}. Key implementati
 \end{itemize}
 
 \begin{lstlisting}[language=Python]
-def login(request, username, password):
+def login(request, email, password):
     with connection.cursor() as c:
         c.execute(
             "SELECT uid, email, username, nickname, pwhash "
-            "FROM users WHERE username = %s",
-            [username],
+            "FROM users WHERE email = %s",
+            [email],
         )
         user = _dictfetchone(c)
     if not user or user["pwhash"] != _hash(password):
@@ -722,6 +722,7 @@ def login(request, username, password):
 
 \begin{itemize}
     \item \textbf{Session-based authentication.} Django's built-in session framework stores the user's \texttt{uid} in a server-side session. A session cookie (\texttt{sessionid}) is sent to the browser. Every protected function checks \texttt{request.session.get("uid")} before proceeding.
+    \item \textbf{Email-based login.} Users log in with their email address, which is constrained \texttt{UNIQUE NOT NULL} in the \texttt{users} table. This guarantees that login credentials are unambiguous --- no two accounts can share the same email.
     \item \textbf{Password hashing.} Passwords are hashed with SHA-256 (\texttt{hashlib.sha256}) before storage. The hash comparison is performed in Python, not in SQL.
     \item \textbf{Authorization checks.} Operations like \texttt{invite\_to\_workspace} first query the caller's role and verify it is \texttt{'creator'} or \texttt{'admin'} before proceeding.
     \item \textbf{Duplicate prevention.} Workspace and channel invitations use \texttt{INSERT ... ON CONFLICT (wsid, uid) DO NOTHING} to avoid duplicate membership records.
@@ -767,7 +768,7 @@ export const apiCall = async (func, args = [], kwargs = {}) => {
 \subsection{Key Features}
 
 \begin{enumerate}
-    \item \textbf{User registration and login} --- users create accounts with email, username, nickname, and password. Sessions persist across page refreshes via the \texttt{me} endpoint.
+    \item \textbf{User registration and login} --- users create accounts with email, username, nickname, and password, and log in with their email address. Since email is \texttt{UNIQUE NOT NULL}, it unambiguously identifies each account. Sessions persist across page refreshes via the \texttt{me} endpoint.
     \item \textbf{Workspace management} --- create workspaces, invite members (by searching usernames), promote/demote admins, remove members, leave or delete workspaces.
     \item \textbf{Channel types} --- public (discoverable, self-join), private (invite-only), and direct messages (two-person).
     \item \textbf{Messaging} --- send and view messages in real-time within a channel. Messages display chronologically with sender name and timestamp.
@@ -955,7 +956,7 @@ POSTGRES_HOST=db
     \item \textbf{Start the system:} Run \texttt{docker compose up --build} from the project root.
     \item \textbf{Start the frontend:} In a separate terminal, run \texttt{cd frontend \&\& npm start}.
     \item \textbf{Open the app:} Navigate to \texttt{http://localhost:3000}.
-    \item \textbf{Log in or register:} Use a test account (e.g., \texttt{alicezhang} / \texttt{alice123}) or create a new account.
+    \item \textbf{Log in or register:} Use a test account (e.g., \texttt{az1234@nyu.edu} / \texttt{alice123}) or create a new account.
 \end{enumerate}
 
 \subsection{Main Interface}
@@ -1045,7 +1046,7 @@ Below are representative session logs demonstrating the core functionality of th
 \begin{enumerate}
     \item Alice logs in and checks her inbox:
     \begin{itemize}
-        \item \texttt{login(username="alicezhang", password="alice123")}
+        \item \texttt{login(email="az1234@nyu.edu", password="alice123")}
         \item \texttt{get\_invitations()} $\Rightarrow$ \texttt{[\{type: "workspace", id: 2, name: "Tandon Robotics Club"\}]}
     \end{itemize}
 
@@ -1072,7 +1073,7 @@ Below are representative session logs demonstrating the core functionality of th
 \begin{enumerate}
     \item Bob logs in and manages the CS Department workspace:
     \begin{itemize}
-        \item \texttt{login(username="bobsmith", password="bob456")}
+        \item \texttt{login(email="bs5678@nyu.edu", password="bob456")}
         \item \texttt{get\_workspace\_members(wsid=1)} $\Rightarrow$ Lists all members with roles.
     \end{itemize}
 
@@ -1092,7 +1093,7 @@ Below are representative session logs demonstrating the core functionality of th
 \begin{enumerate}
     \item Carol logs in and creates a DM with Henry:
     \begin{itemize}
-        \item \texttt{login(username="carolwang", password="carol789")}
+        \item \texttt{login(email="cw9012@nyu.edu", password="carol789")}
         \item \texttt{create\_channel(wsid=3, chtype="direct", invitee\_uid=8)}
         \item Response: \texttt{\{chid: 12, chtype: "direct"\}}
     \end{itemize}
@@ -1105,7 +1106,7 @@ Below are representative session logs demonstrating the core functionality of th
 
     \item Henry logs in and sees the DM:
     \begin{itemize}
-        \item \texttt{login(username="henrykim", password="henry234")}
+        \item \texttt{login(email="hk1234@nyu.edu", password="henry234")}
         \item \texttt{get\_messages(chid=12)} $\Rightarrow$ Returns Carol's message.
     \end{itemize}
 \end{enumerate}
